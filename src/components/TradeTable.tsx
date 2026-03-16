@@ -5,15 +5,23 @@ import type { DailyRecord } from "@/lib/types";
 
 interface Props {
   records: DailyRecord[];
+  totalRounds?: number;
 }
 
-const ACTION_LABELS: Record<DailyRecord["action"], string> = {
-  buy_full: "매수 (1회차)",
-  buy_half: "매수 (0.5회차)",
-  sell: "전량 매도",
-  quarter_sell: "쿼터손절",
-  hold: "보유",
-};
+function getActionLabel(r: DailyRecord, totalRounds: number): string {
+  switch (r.action) {
+    case "buy_full":
+      return `1배 매수 (${r.roundsUsed}/${totalRounds}회)`;
+    case "buy_half":
+      return `0.5배 매수 (${r.roundsUsed}/${totalRounds}회)`;
+    case "sell":
+      return "전량 매도";
+    case "quarter_sell":
+      return "쿼터손절 (25%)";
+    case "hold":
+      return "보유";
+  }
+}
 
 const ACTION_COLORS: Record<DailyRecord["action"], string> = {
   buy_full: "text-emerald-400",
@@ -23,7 +31,7 @@ const ACTION_COLORS: Record<DailyRecord["action"], string> = {
   hold: "text-gray-500",
 };
 
-export default function TradeTable({ records }: Props) {
+export default function TradeTable({ records, totalRounds = 40 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [filter, setFilter] = useState<"all" | "trades">("trades");
 
@@ -75,7 +83,7 @@ export default function TradeTable({ records }: Props) {
                 <td className="py-1.5 px-2 text-gray-300">{r.date}</td>
                 <td className="py-1.5 px-2 text-gray-400">#{r.cycleNumber}</td>
                 <td className={`py-1.5 px-2 font-medium ${ACTION_COLORS[r.action]}`}>
-                  {ACTION_LABELS[r.action]}
+                  {getActionLabel(r, totalRounds)}
                 </td>
                 <td className="py-1.5 px-2 text-right text-gray-300">
                   ${r.closePrice.toFixed(2)}

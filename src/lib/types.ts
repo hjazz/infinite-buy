@@ -31,12 +31,19 @@ export interface CycleResult {
   sellType: "target" | "quarter_sell" | "ongoing";
 }
 
+export interface BuyHoldResult {
+  finalValue: number;
+  totalReturn: number;
+  dailyValues: { date: string; value: number }[];
+}
+
 export interface BacktestResult {
   records: DailyRecord[];
   cycles: CycleResult[];
   totalReturn: number;
   finalValue: number;
   totalCapital: number;
+  buyHold: BuyHoldResult;
 }
 
 export interface StockData {

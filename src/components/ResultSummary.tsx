@@ -29,11 +29,25 @@ export default function ResultSummary({ result }: Props) {
     if (dd > maxDrawdown) maxDrawdown = dd;
   }
 
+  const { buyHold } = result;
+  const bhReturn = buyHold.totalReturn;
+  const outperform = totalReturn - bhReturn;
+
   const stats = [
     {
-      label: "총 수익률",
+      label: "무한매수법 수익률",
       value: `${totalReturn >= 0 ? "+" : ""}${totalReturn.toFixed(2)}%`,
       color: totalReturn >= 0 ? "text-emerald-400" : "text-red-400",
+    },
+    {
+      label: "Buy & Hold 수익률",
+      value: `${bhReturn >= 0 ? "+" : ""}${bhReturn.toFixed(2)}%`,
+      color: "text-purple-400",
+    },
+    {
+      label: "초과 수익",
+      value: `${outperform >= 0 ? "+" : ""}${outperform.toFixed(2)}%p`,
+      color: outperform >= 0 ? "text-emerald-400" : "text-red-400",
     },
     {
       label: "최종 자산",
@@ -42,23 +56,13 @@ export default function ResultSummary({ result }: Props) {
     },
     {
       label: "완료 사이클",
-      value: `${completedCycles.length}회`,
+      value: `${completedCycles.length}회 (평균 ${avgCycleDays > 0 ? avgCycleDays : "-"}일)`,
       color: "text-blue-400",
-    },
-    {
-      label: "평균 사이클",
-      value: avgCycleDays > 0 ? `${avgCycleDays}일` : "-",
-      color: "text-gray-300",
     },
     {
       label: "최대 낙폭",
       value: `-${maxDrawdown.toFixed(2)}%`,
       color: "text-orange-400",
-    },
-    {
-      label: "쿼터손절",
-      value: `${quarterSells}회`,
-      color: quarterSells > 0 ? "text-yellow-400" : "text-gray-400",
     },
   ];
 

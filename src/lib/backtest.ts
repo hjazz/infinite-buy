@@ -1,6 +1,7 @@
 import type {
   BacktestInput,
   BacktestResult,
+  BuyHoldResult,
   CycleResult,
   DailyRecord,
   StockData,
@@ -175,11 +176,27 @@ export function runBacktest(
   const lastRecord = records[records.length - 1];
   const finalValue = lastRecord?.portfolioValue ?? totalCapital;
 
+  // Buy & Hold benchmark: invest all capital at first day's close
+  const firstClose = stockData[0]?.close ?? 1;
+  const bhShares = totalCapital / firstClose;
+  const buyHold: BuyHoldResult = {
+    finalValue: bhShares * (stockData[stockData.length - 1]?.close ?? firstClose),
+    totalReturn:
+      (((stockData[stockData.length - 1]?.close ?? firstClose) - firstClose) /
+        firstClose) *
+      100,
+    dailyValues: stockData.map((d) => ({
+      date: d.date,
+      value: Math.round(bhShares * d.close * 100) / 100,
+    })),
+  };
+
   return {
     records,
     cycles,
     totalReturn: ((finalValue - totalCapital) / totalCapital) * 100,
     finalValue,
     totalCapital,
+    buyHold,
   };
 }

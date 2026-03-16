@@ -1,6 +1,6 @@
 "use client";
 
-import type { DailyRecord } from "@/lib/types";
+import type { DailyRecord, BuyHoldResult } from "@/lib/types";
 import {
   ComposedChart,
   Line,
@@ -16,6 +16,7 @@ import {
 
 interface Props {
   records: DailyRecord[];
+  buyHold: BuyHoldResult;
 }
 
 interface ChartRow {
@@ -24,6 +25,7 @@ interface ChartRow {
   avgCost: number | null;
   targetPrice: number | null;
   portfolioValue: number;
+  buyHoldValue: number | null;
   buyPoint: number | null;
   sellPoint: number | null;
 }
@@ -32,7 +34,10 @@ function formatDate(d: string) {
   return d.slice(5); // MM-DD
 }
 
-export default function BacktestChart({ records }: Props) {
+export default function BacktestChart({ records, buyHold }: Props) {
+  // Build a lookup for buy & hold daily values
+  const bhMap = new Map(buyHold.dailyValues.map((d) => [d.date, d.value]));
+
   const data: ChartRow[] = records.map((r) => ({
     date: r.date,
     closePrice: r.closePrice,
@@ -42,6 +47,7 @@ export default function BacktestChart({ records }: Props) {
         ? Math.round(r.avgCost * 1.1 * 100) / 100
         : null,
     portfolioValue: Math.round(r.portfolioValue * 100) / 100,
+    buyHoldValue: bhMap.get(r.date) ?? null,
     buyPoint:
       r.action === "buy_full" || r.action === "buy_half"
         ? r.closePrice
@@ -107,7 +113,8 @@ export default function BacktestChart({ records }: Props) {
                 closePrice: "종가",
                 avgCost: "평균단가",
                 targetPrice: "목표가(+10%)",
-                portfolioValue: "포트폴리오",
+                portfolioValue: "무한매수법",
+                buyHoldValue: "Buy & Hold",
                 buyPoint: "매수",
                 sellPoint: "매도",
               };
@@ -121,7 +128,8 @@ export default function BacktestChart({ records }: Props) {
                 closePrice: "종가",
                 avgCost: "평균단가",
                 targetPrice: "목표가",
-                portfolioValue: "포트폴리오",
+                portfolioValue: "무한매수법",
+                buyHoldValue: "Buy & Hold",
                 buyPoint: "매수",
                 sellPoint: "매도",
               };
@@ -136,6 +144,17 @@ export default function BacktestChart({ records }: Props) {
             dataKey="portfolioValue"
             fill="#3b82f620"
             stroke="none"
+          />
+
+          {/* Buy & Hold line */}
+          <Line
+            yAxisId="portfolio"
+            type="monotone"
+            dataKey="buyHoldValue"
+            stroke="#a78bfa"
+            dot={false}
+            strokeWidth={1.5}
+            strokeDasharray="6 3"
           />
 
           {/* Price line */}

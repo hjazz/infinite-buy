@@ -10,6 +10,7 @@ import TradeTable from "@/components/TradeTable";
 
 export default function Home() {
   const [result, setResult] = useState<BacktestResult | null>(null);
+  const [rounds, setRounds] = useState(40);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export default function Home() {
       }
 
       const backtestResult = runBacktest(input, stockData);
+      setRounds(input.rounds);
       setResult(backtestResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "알 수 없는 오류");
@@ -66,8 +68,8 @@ export default function Home() {
       {result && (
         <div className="mt-6 space-y-4">
           <ResultSummary result={result} />
-          <BacktestChart records={result.records} />
-          <TradeTable records={result.records} />
+          <BacktestChart records={result.records} buyHold={result.buyHold} />
+          <TradeTable records={result.records} totalRounds={rounds} />
         </div>
       )}
     </main>
