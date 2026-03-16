@@ -140,6 +140,21 @@ export function runBacktest(
           portfolioValue: cycleCash + totalShares * close,
           cycleNumber,
         });
+      } else {
+        // No cash to buy, record as hold
+        records.push({
+          date,
+          closePrice: close,
+          action: "hold",
+          buyAmount: 0,
+          shares: 0,
+          totalShares,
+          avgCost,
+          roundsUsed,
+          cashRemaining: cycleCash,
+          portfolioValue: cycleCash + totalShares * close,
+          cycleNumber,
+        });
       }
     } else {
       // No rounds left, just hold
