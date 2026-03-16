@@ -7,6 +7,7 @@ import BacktestForm from "@/components/BacktestForm";
 import BacktestChart from "@/components/BacktestChart";
 import ResultSummary from "@/components/ResultSummary";
 import TradeTable from "@/components/TradeTable";
+import StrategyGuide from "@/components/StrategyGuide";
 
 export default function Home() {
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -57,6 +58,7 @@ export default function Home() {
         </p>
       </div>
 
+      <StrategyGuide />
       <BacktestForm onSubmit={handleSubmit} loading={loading} />
 
       {error && (
