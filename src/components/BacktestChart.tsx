@@ -1,0 +1,196 @@
+"use client";
+
+import type { DailyRecord } from "@/lib/types";
+import {
+  ComposedChart,
+  Line,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Scatter,
+} from "recharts";
+
+interface Props {
+  records: DailyRecord[];
+}
+
+interface ChartRow {
+  date: string;
+  closePrice: number;
+  avgCost: number | null;
+  targetPrice: number | null;
+  portfolioValue: number;
+  buyPoint: number | null;
+  sellPoint: number | null;
+}
+
+function formatDate(d: string) {
+  return d.slice(5); // MM-DD
+}
+
+export default function BacktestChart({ records }: Props) {
+  const data: ChartRow[] = records.map((r) => ({
+    date: r.date,
+    closePrice: r.closePrice,
+    avgCost: r.totalShares > 0 ? Math.round(r.avgCost * 100) / 100 : null,
+    targetPrice:
+      r.totalShares > 0
+        ? Math.round(r.avgCost * 1.1 * 100) / 100
+        : null,
+    portfolioValue: Math.round(r.portfolioValue * 100) / 100,
+    buyPoint:
+      r.action === "buy_full" || r.action === "buy_half"
+        ? r.closePrice
+        : null,
+    sellPoint:
+      r.action === "sell" || r.action === "quarter_sell"
+        ? r.closePrice
+        : null,
+  }));
+
+  // Sample data for performance if too many points
+  const sampled =
+    data.length > 500
+      ? data.filter((_, i) => {
+          // Always keep buy/sell points
+          const r = records[i];
+          if (
+            r.action === "sell" ||
+            r.action === "quarter_sell" ||
+            r.action === "buy_full"
+          )
+            return true;
+          return i % Math.ceil(data.length / 500) === 0;
+        })
+      : data;
+
+  return (
+    <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800">
+      <h3 className="text-sm font-medium text-gray-400 mb-3">
+        주가 & 매매 포인트
+      </h3>
+      <ResponsiveContainer width="100%" height={400}>
+        <ComposedChart data={sampled}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatDate}
+            tick={{ fontSize: 11, fill: "#9ca3af" }}
+            interval="preserveStartEnd"
+            minTickGap={50}
+          />
+          <YAxis
+            yAxisId="price"
+            tick={{ fontSize: 11, fill: "#9ca3af" }}
+            domain={["auto", "auto"]}
+            tickFormatter={(v: number) => `$${v}`}
+          />
+          <YAxis
+            yAxisId="portfolio"
+            orientation="right"
+            tick={{ fontSize: 11, fill: "#9ca3af" }}
+            tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#1f2937",
+              border: "1px solid #374151",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+            formatter={(value, name) => {
+              const labels: Record<string, string> = {
+                closePrice: "종가",
+                avgCost: "평균단가",
+                targetPrice: "목표가(+10%)",
+                portfolioValue: "포트폴리오",
+                buyPoint: "매수",
+                sellPoint: "매도",
+              };
+              return [`$${Number(value).toFixed(2)}`, labels[String(name)] ?? String(name)];
+            }}
+            labelFormatter={(label) => `날짜: ${String(label)}`}
+          />
+          <Legend
+            formatter={(value) => {
+              const labels: Record<string, string> = {
+                closePrice: "종가",
+                avgCost: "평균단가",
+                targetPrice: "목표가",
+                portfolioValue: "포트폴리오",
+                buyPoint: "매수",
+                sellPoint: "매도",
+              };
+              return labels[value] ?? value;
+            }}
+          />
+
+          {/* Portfolio value area */}
+          <Area
+            yAxisId="portfolio"
+            type="monotone"
+            dataKey="portfolioValue"
+            fill="#3b82f620"
+            stroke="none"
+          />
+
+          {/* Price line */}
+          <Line
+            yAxisId="price"
+            type="monotone"
+            dataKey="closePrice"
+            stroke="#60a5fa"
+            dot={false}
+            strokeWidth={1.5}
+          />
+
+          {/* Average cost line */}
+          <Line
+            yAxisId="price"
+            type="stepAfter"
+            dataKey="avgCost"
+            stroke="#f59e0b"
+            dot={false}
+            strokeWidth={1}
+            strokeDasharray="4 4"
+            connectNulls={false}
+          />
+
+          {/* Target price line */}
+          <Line
+            yAxisId="price"
+            type="stepAfter"
+            dataKey="targetPrice"
+            stroke="#ef4444"
+            dot={false}
+            strokeWidth={1}
+            strokeDasharray="2 2"
+            connectNulls={false}
+          />
+
+          {/* Buy points */}
+          <Scatter
+            yAxisId="price"
+            dataKey="buyPoint"
+            fill="#34d399"
+            shape="circle"
+            r={3}
+          />
+
+          {/* Sell points */}
+          <Scatter
+            yAxisId="price"
+            dataKey="sellPoint"
+            fill="#f87171"
+            shape="diamond"
+            r={5}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
