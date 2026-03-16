@@ -68,15 +68,19 @@ export function runBacktest(
       continue;
     }
 
-    // Check quarter sell if rounds exhausted
-    if (roundsUsed >= rounds && totalShares > 0) {
+    // Check quarter sell if rounds exhausted OR cash depleted (can't buy anymore)
+    const minBuyAmount = roundAmount * 0.5; // minimum possible buy (half round)
+    if (
+      totalShares > 0 &&
+      (roundsUsed >= rounds || (cycleCash < minBuyAmount && roundsUsed > 0))
+    ) {
       const quarterShares = totalShares * 0.25;
       const sellValue = quarterShares * close;
       totalShares -= quarterShares;
       cycleCash += sellValue;
 
       // Recalculate: free up some rounds worth of buying power
-      const freedRounds = Math.floor(rounds * 0.25);
+      const freedRounds = Math.min(Math.floor(rounds * 0.25), roundsUsed);
       roundsUsed -= freedRounds;
 
       records.push({
