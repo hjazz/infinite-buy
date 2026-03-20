@@ -7,9 +7,11 @@ import {
   placeLimitBuy,
   placeLimitSell,
 } from "../kis/order";
+import { checkExecution } from "../kis/execution";
 import { determineAction, applyDecision } from "./strategy";
 import { loadState, saveState, initState } from "./state";
 import { logTrade, formatTradeLog } from "./logger";
+import { notifyTrade, notifyError } from "./notify";
 
 export interface EngineResult {
   success: boolean;
@@ -146,9 +148,30 @@ export async function runTradingEngine(
       }
 
       console.log(`[Engine] 주문 완료 - 주문번호: ${orderId}`);
+
+      // 체결 확인 (1회 조회)
+      if (orderId) {
+        try {
+          const exec = await checkExecution(kisConfig, orderId);
+          if (exec?.isFilled) {
+            console.log(
+              `[Engine] 체결 확인: ${exec.filledQuantity}주 @ $${exec.filledPrice.toFixed(2)}`,
+            );
+          } else if (exec?.isPartialFill) {
+            console.log(
+              `[Engine] 부분 체결: ${exec.filledQuantity}주 (미체결: ${exec.unfilledQuantity}주)`,
+            );
+          } else {
+            console.log(`[Engine] 체결 대기 중 (LOC 주문은 장 마감 시 체결)`);
+          }
+        } catch {
+          console.log(`[Engine] 체결 조회 스킵 (조회 불가)`);
+        }
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[Engine] 주문 실패: ${msg}`);
+      await notifyError(`${tradingConfig.ticker} 주문 실패: ${msg}`);
       return {
         success: false,
         action: decision.action,
@@ -188,6 +211,7 @@ export async function runTradingEngine(
 
   logTrade(tradeLog);
   console.log(formatTradeLog(tradeLog));
+  await notifyTrade(tradeLog);
 
   return {
     success: true,

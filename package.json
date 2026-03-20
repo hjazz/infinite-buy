@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "trade": "tsx src/scripts/trade.ts",
-    "trade:status": "tsx src/scripts/status.ts"
+    "trade:status": "tsx src/scripts/status.ts",
+    "trade:cron": "tsx src/scripts/cron.ts"
   },
   "keywords": [],
   "author": "",
@@ -29,7 +30,9 @@
     "yahoo-finance2": "^3.13.2"
   },
   "devDependencies": {
+    "@types/node-cron": "^3.0.11",
     "dotenv": "^16.5.0",
+    "node-cron": "^3.0.3",
     "tsx": "^4.19.0"
   }
 }

@@ -51,11 +51,19 @@ export default function Home() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">무한매수법 백테스트</h1>
-        <p className="text-sm text-gray-500">
-          라오어의 무한매수법(V1) 시뮬레이터 — 과거 데이터 기반 백테스트
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">무한매수법 백테스트</h1>
+          <p className="text-sm text-gray-500">
+            라오어의 무한매수법(V1) 시뮬레이터 — 과거 데이터 기반 백테스트
+          </p>
+        </div>
+        <a
+          href="/trading"
+          className="text-sm text-gray-400 hover:text-gray-200 transition"
+        >
+          트레이딩 대시보드 &rarr;
+        </a>
       </div>
 
       <StrategyGuide />
