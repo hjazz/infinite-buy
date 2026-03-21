@@ -1,4 +1,6 @@
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+config();
 import * as cron from "node-cron";
 import type { KISConfig } from "../lib/kis/types";
 import type { TradingConfig } from "../lib/trading/types";
