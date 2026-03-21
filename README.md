@@ -86,20 +86,31 @@ src/
 │   │   ├── client.ts           # HTTP 요청 래퍼
 │   │   ├── quote.ts            # 현재가 조회
 │   │   ├── order.ts            # 주문 (LOC/지정가 매수·매도)
-│   │   └── account.ts          # 잔고·예수금 조회
+│   │   ├── account.ts          # 잔고·예수금 조회
+│   │   └── execution.ts        # 체결 확인/폴링
 │   ├── trading/                # 트레이딩 엔진
 │   │   ├── types.ts            # 상태/로그 타입
 │   │   ├── strategy.ts         # 매매 판단 로직 (backtest.ts에서 추출)
 │   │   ├── state.ts            # JSON 상태 저장/로드
 │   │   ├── logger.ts           # 거래 로그 (JSONL)
+│   │   ├── notify.ts           # 텔레그램 알림
 │   │   └── engine.ts           # 메인 오케스트레이터
 │   ├── backtest.ts             # 백테스트 엔진
 │   └── types.ts                # 공통 타입
 ├── scripts/
 │   ├── trade.ts                # 자동매매 실행 CLI
-│   └── status.ts               # 트레이딩 상태 확인 CLI
+│   ├── status.ts               # 트레이딩 상태 확인 CLI
+│   └── cron.ts                 # node-cron 스케줄러
 ├── components/                 # 백테스트 UI 컴포넌트
-└── app/                        # Next.js 페이지
+└── app/
+    ├── page.tsx                # 백테스트 페이지
+    ├── trading/page.tsx        # 트레이딩 대시보드
+    └── api/
+        ├── stock/route.ts      # Yahoo Finance 주가 데이터
+        └── trading/            # 트레이딩 API
+            ├── status/route.ts # 상태 조회
+            ├── history/route.ts# 거래 내역
+            └── run/route.ts    # 수동 실행
 ```
 
 ### 주문 방식
@@ -119,15 +130,17 @@ src/
 cp .env.example .env.local
 ```
 
-`.env.local` 에 한국투자증권 API 키 설정:
+`.env.local` 에 설정:
 
 ```env
+# 한국투자증권 OpenAPI (필수)
 KIS_APP_KEY=your_app_key
 KIS_APP_SECRET=your_app_secret
 KIS_ACCOUNT_NO=12345678
 KIS_ACCOUNT_PRODUCT=01
 KIS_MOCK=true                   # true=모의투자, false=실전투자
 
+# 무한매수법 설정
 TRADING_TICKER=TQQQ
 TRADING_TOTAL_CAPITAL=10000     # 총 투자금 (USD)
 TRADING_ROUNDS=40               # 분할 횟수
@@ -135,6 +148,14 @@ TRADING_TARGET_RETURN=0.10      # 목표 수익률 10%
 TRADING_EXCHANGE=NASD
 TRADING_LOC_MARGIN=0.05         # LOC 지정가 마진 5%
 TRADING_MAX_DAILY_AMOUNT=5000   # 일일 최대 주문 금액
+
+# 텔레그램 알림 (선택)
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# 스케줄러 (선택)
+CRON_SCHEDULE=30 15 * * 1-5     # ET 15:30 월~금
+CRON_TIMEZONE=America/New_York
 ```
 
 ### 사용법
@@ -145,13 +166,21 @@ npm run trade
 
 # 현재 트레이딩 상태 확인
 npm run trade:status
+
+# 스케줄러 실행 (매일 ET 15:30 자동)
+npm run trade:cron
+
+# 웹 대시보드 (http://localhost:3000/trading)
+npm run dev
 ```
 
 ### 안전장치
 - 하루 1회 실행 제한 (중복 방지)
 - 일일 최대 주문 금액 제한
 - 주문 수량 1주 미만 시 홀드 처리
+- 주문 후 체결 여부 자동 확인
 - 모든 거래 JSONL 로그 기록 (`data/logs/`)
+- 텔레그램 에러 알림 (설정 시)
 - 모의투자 우선 실행 권장
 
 ### 데이터 저장
@@ -174,33 +203,11 @@ data/
 - **텔레그램 알림**: 매매 판단·주문·체결 결과 실시간 전송
 - **에러 알림**: 주문 실패·API 오류 시 즉시 알림
 
-### 사용법
-
-```bash
-# 스케줄러 실행 (백그라운드 상주)
-npm run trade:cron
-
-# 또는 시스템 crontab 사용
-# 30 5 * * 1-5 cd /path/to/infinite-buy && npm run trade >> data/logs/cron.log 2>&1
-```
-
 ### 텔레그램 설정
-
-`.env.local`에 추가:
-```env
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-```
 
 1. @BotFather에서 봇 생성 → 토큰 발급
 2. 봇에게 메시지 전송 후 `https://api.telegram.org/bot{TOKEN}/getUpdates`에서 chat_id 확인
-
-### 스케줄 커스터마이징
-
-```env
-CRON_SCHEDULE=30 15 * * 1-5       # 기본: ET 15:30 월~금
-CRON_TIMEZONE=America/New_York    # 미국 동부시간
-```
+3. `.env.local`에 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 입력
 
 ---
 
