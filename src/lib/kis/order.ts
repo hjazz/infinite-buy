@@ -5,7 +5,7 @@ function getTrId(config: KISConfig, side: "buy" | "sell"): string {
   if (side === "buy") {
     return config.isMock ? "VTTT1002U" : "TTTT1002U";
   }
-  return config.isMock ? "VTTT1006U" : "TTTT1006U";
+  return config.isMock ? "VTTT1001U" : "TTTT1006U";
 }
 
 /**

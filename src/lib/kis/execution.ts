@@ -44,13 +44,13 @@ export async function checkExecution(
     {
       CANO: config.accountNo,
       ACNT_PRDT_CD: config.accountProduct,
-      PDNO: "%",
+      PDNO: config.isMock ? "" : "%",
       ORD_STRT_DT: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
       ORD_END_DT: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
-      SLL_BUY_DVSN: "00", // 전체
-      CCLD_NCCS_DVSN: "00", // 전체
-      OVRS_EXCG_CD: "NASD",
-      SORT_SQN: "DS", // 최신순
+      SLL_BUY_DVSN: "00",
+      CCLD_NCCS_DVSN: "00",
+      OVRS_EXCG_CD: config.isMock ? "" : "NASD",
+      SORT_SQN: config.isMock ? "" : "DS",
       ORD_DT: "",
       ORD_GNO_BRNO: "",
       ODNO: "",
