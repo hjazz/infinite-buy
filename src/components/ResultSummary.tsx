@@ -29,9 +29,11 @@ export default function ResultSummary({ result }: Props) {
     if (dd > maxDrawdown) maxDrawdown = dd;
   }
 
-  const { buyHold } = result;
+  const { buyHold, dca } = result;
   const bhReturn = buyHold.totalReturn;
-  const outperform = totalReturn - bhReturn;
+  const dcaReturn = dca.totalReturn;
+
+  const fmt = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const stats = [
     {
@@ -45,13 +47,14 @@ export default function ResultSummary({ result }: Props) {
       color: "text-purple-400",
     },
     {
-      label: "초과 수익",
-      value: `${outperform >= 0 ? "+" : ""}${outperform.toFixed(2)}%p`,
-      color: outperform >= 0 ? "text-emerald-400" : "text-red-400",
+      label: `적립식(월$${dca.totalInvested > 0 ? Math.round(dca.totalInvested / Math.max(1, new Set(dca.dailyValues.map(d => d.date.slice(0, 7))).size)) : 0}) 수익률`,
+      value: `${dcaReturn >= 0 ? "+" : ""}${dcaReturn.toFixed(2)}%`,
+      color: "text-cyan-400",
+      sub: `투자 $${fmt(dca.totalInvested)} → $${fmt(dca.finalValue)}`,
     },
     {
       label: "최종 자산",
-      value: `$${finalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: `$${fmt(finalValue)}`,
       color: "text-white",
     },
     {
@@ -75,6 +78,9 @@ export default function ResultSummary({ result }: Props) {
         >
           <div className="text-xs text-gray-500 mb-1">{s.label}</div>
           <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+          {"sub" in s && s.sub && (
+            <div className="text-xs text-gray-500 mt-0.5">{s.sub}</div>
+          )}
         </div>
       ))}
     </div>

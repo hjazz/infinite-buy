@@ -5,6 +5,7 @@ export interface BacktestInput {
   totalCapital: number;
   rounds: number;
   targetReturn: number;
+  dcaMonthlyAmount: number;
 }
 
 export interface DailyRecord {
@@ -37,6 +38,13 @@ export interface BuyHoldResult {
   dailyValues: { date: string; value: number }[];
 }
 
+export interface DCAResult {
+  finalValue: number;
+  totalInvested: number;
+  totalReturn: number;
+  dailyValues: { date: string; value: number }[];
+}
+
 export interface BacktestResult {
   records: DailyRecord[];
   cycles: CycleResult[];
@@ -44,6 +52,7 @@ export interface BacktestResult {
   finalValue: number;
   totalCapital: number;
   buyHold: BuyHoldResult;
+  dca: DCAResult;
 }
 
 export interface StockData {

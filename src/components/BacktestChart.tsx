@@ -1,6 +1,6 @@
 "use client";
 
-import type { DailyRecord, BuyHoldResult } from "@/lib/types";
+import type { DailyRecord, BuyHoldResult, DCAResult } from "@/lib/types";
 import {
   ComposedChart,
   Line,
@@ -17,6 +17,7 @@ import {
 interface Props {
   records: DailyRecord[];
   buyHold: BuyHoldResult;
+  dca: DCAResult;
 }
 
 interface ChartRow {
@@ -26,6 +27,7 @@ interface ChartRow {
   targetPrice: number | null;
   portfolioValue: number;
   buyHoldValue: number | null;
+  dcaValue: number | null;
   buyPoint: number | null;
   sellPoint: number | null;
 }
@@ -34,9 +36,10 @@ function formatDate(d: string) {
   return d.slice(5); // MM-DD
 }
 
-export default function BacktestChart({ records, buyHold }: Props) {
-  // Build a lookup for buy & hold daily values
+export default function BacktestChart({ records, buyHold, dca }: Props) {
+  // Build lookups for benchmark daily values
   const bhMap = new Map(buyHold.dailyValues.map((d) => [d.date, d.value]));
+  const dcaMap = new Map(dca.dailyValues.map((d) => [d.date, d.value]));
 
   const data: ChartRow[] = records.map((r) => ({
     date: r.date,
@@ -48,6 +51,7 @@ export default function BacktestChart({ records, buyHold }: Props) {
         : null,
     portfolioValue: Math.round(r.portfolioValue * 100) / 100,
     buyHoldValue: bhMap.get(r.date) ?? null,
+    dcaValue: dcaMap.get(r.date) ?? null,
     buyPoint:
       r.action === "buy_full" || r.action === "buy_half"
         ? r.closePrice
@@ -115,6 +119,7 @@ export default function BacktestChart({ records, buyHold }: Props) {
                 targetPrice: "목표가(+10%)",
                 portfolioValue: "무한매수법",
                 buyHoldValue: "Buy & Hold",
+                dcaValue: "적립식(DCA)",
                 buyPoint: "매수",
                 sellPoint: "매도",
               };
@@ -130,6 +135,7 @@ export default function BacktestChart({ records, buyHold }: Props) {
                 targetPrice: "목표가",
                 portfolioValue: "무한매수법",
                 buyHoldValue: "Buy & Hold",
+                dcaValue: "적립식(DCA)",
                 buyPoint: "매수",
                 sellPoint: "매도",
               };
@@ -155,6 +161,17 @@ export default function BacktestChart({ records, buyHold }: Props) {
             dot={false}
             strokeWidth={1.5}
             strokeDasharray="6 3"
+          />
+
+          {/* DCA line */}
+          <Line
+            yAxisId="portfolio"
+            type="monotone"
+            dataKey="dcaValue"
+            stroke="#22d3ee"
+            dot={false}
+            strokeWidth={1.5}
+            strokeDasharray="4 2"
           />
 
           {/* Price line */}

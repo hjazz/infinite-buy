@@ -3,6 +3,7 @@ import type {
   BacktestResult,
   BuyHoldResult,
   CycleResult,
+  DCAResult,
   DailyRecord,
   StockData,
 } from "./types";
@@ -210,6 +211,38 @@ export function runBacktest(
     })),
   };
 
+  // DCA benchmark: invest fixed amount monthly
+  const dcaMonthly = input.dcaMonthlyAmount ?? 500;
+  let dcaShares = 0;
+  let dcaTotalInvested = 0;
+  let dcaLastMonth = "";
+  const dcaDailyValues: { date: string; value: number }[] = [];
+
+  for (const d of stockData) {
+    const month = d.date.slice(0, 7); // YYYY-MM
+    if (month !== dcaLastMonth) {
+      // First trading day of new month: invest
+      dcaShares += dcaMonthly / d.close;
+      dcaTotalInvested += dcaMonthly;
+      dcaLastMonth = month;
+    }
+    dcaDailyValues.push({
+      date: d.date,
+      value: Math.round(dcaShares * d.close * 100) / 100,
+    });
+  }
+
+  const dcaFinalValue = dcaDailyValues[dcaDailyValues.length - 1]?.value ?? 0;
+  const dca: DCAResult = {
+    finalValue: dcaFinalValue,
+    totalInvested: dcaTotalInvested,
+    totalReturn:
+      dcaTotalInvested > 0
+        ? ((dcaFinalValue - dcaTotalInvested) / dcaTotalInvested) * 100
+        : 0,
+    dailyValues: dcaDailyValues,
+  };
+
   return {
     records,
     cycles,
@@ -217,5 +250,6 @@ export function runBacktest(
     finalValue,
     totalCapital,
     buyHold,
+    dca,
   };
 }

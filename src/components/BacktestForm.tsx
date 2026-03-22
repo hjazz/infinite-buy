@@ -18,6 +18,7 @@ export default function BacktestForm({ onSubmit, loading }: Props) {
       totalCapital: Number(fd.get("totalCapital")),
       rounds: Number(fd.get("rounds")),
       targetReturn: Number(fd.get("targetReturn")) / 100,
+      dcaMonthlyAmount: Number(fd.get("dcaMonthlyAmount")),
     });
   }
 
@@ -98,6 +99,20 @@ export default function BacktestForm({ onSubmit, loading }: Props) {
             defaultValue={10}
             min={1}
             max={50}
+            required
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">
+            월 적립금 ($)
+          </label>
+          <input
+            name="dcaMonthlyAmount"
+            type="number"
+            defaultValue={500}
+            min={10}
             required
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
           />

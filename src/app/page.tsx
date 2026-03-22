@@ -78,7 +78,7 @@ export default function Home() {
       {result && (
         <div className="mt-6 space-y-4">
           <ResultSummary result={result} />
-          <BacktestChart records={result.records} buyHold={result.buyHold} />
+          <BacktestChart records={result.records} buyHold={result.buyHold} dca={result.dca} />
           <TradeTable records={result.records} totalRounds={rounds} />
         </div>
       )}
