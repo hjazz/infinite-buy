@@ -107,6 +107,70 @@ export async function placeLimitBuy(
 }
 
 /**
+ * 해외주식 예약주문 (다음 장 LOC 체결, ord_dvsn: 34)
+ * 엔드포인트: /uapi/overseas-stock/v1/trading/order-resv
+ */
+export async function placeReservationBuy(
+  config: KISConfig,
+  ticker: string,
+  quantity: number,
+  price: number,
+  exchange: "NASD" | "NYSE" | "AMEX" = "NASD",
+): Promise<KISOrderOutput> {
+  const trId = config.isMock ? "VTTT3014U" : "TTTT3014U";
+  const body: Record<string, string> = {
+    CANO: config.accountNo,
+    ACNT_PRDT_CD: config.accountProduct,
+    OVRS_EXCG_CD: exchange,
+    PDNO: ticker,
+    FT_ORD_QTY: String(Math.floor(quantity)),
+    FT_ORD_UNPR3: price.toFixed(2),
+    ORD_SVR_DVSN_CD: "0",
+    ORD_DVSN: "34",
+  };
+  const res = await kisRequest<KISOrderOutput>(
+    config,
+    "POST",
+    "/uapi/overseas-stock/v1/trading/order-resv",
+    trId,
+    undefined,
+    body,
+  );
+  if (res.rt_cd !== "0") throw new Error(`예약주문 실패: ${res.msg1}`);
+  return res.output!;
+}
+
+export async function placeReservationSell(
+  config: KISConfig,
+  ticker: string,
+  quantity: number,
+  price: number,
+  exchange: "NASD" | "NYSE" | "AMEX" = "NASD",
+): Promise<KISOrderOutput> {
+  const trId = config.isMock ? "VTTT3016U" : "TTTT3016U";
+  const body: Record<string, string> = {
+    CANO: config.accountNo,
+    ACNT_PRDT_CD: config.accountProduct,
+    OVRS_EXCG_CD: exchange,
+    PDNO: ticker,
+    FT_ORD_QTY: String(Math.floor(quantity)),
+    FT_ORD_UNPR3: price.toFixed(2),
+    ORD_SVR_DVSN_CD: "0",
+    ORD_DVSN: "34",
+  };
+  const res = await kisRequest<KISOrderOutput>(
+    config,
+    "POST",
+    "/uapi/overseas-stock/v1/trading/order-resv",
+    trId,
+    undefined,
+    body,
+  );
+  if (res.rt_cd !== "0") throw new Error(`예약주문 실패: ${res.msg1}`);
+  return res.output!;
+}
+
+/**
  * 지정가 매도 (모의투자용 - LOC 미지원 대체)
  */
 export async function placeLimitSell(

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { TradeLog } from "@/lib/trading/types";
+import type { ReservationState } from "@/lib/trading/reservation";
 
 interface ComputedState {
   targetPrice: number;
@@ -48,21 +49,25 @@ export default function TradingPage() {
   const [status, setStatus] = useState<TradingStatus | null>(null);
   const [trades, setTrades] = useState<TradeLog[]>([]);
   const [tradeTotal, setTradeTotal] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [runResult, setRunResult] = useState<string | null>(null);
+  const [reservation, setReservation] = useState<ReservationState | null>(null);
+  const [reserving, setReserving] = useState(false);
+  const [resvResult, setResvResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [statusRes, historyRes] = await Promise.all([
+      const [statusRes, historyRes, resvRes] = await Promise.all([
         fetch("/api/trading/status"),
         fetch("/api/trading/history?limit=20"),
+        fetch("/api/trading/reservation"),
       ]);
       const statusData = await statusRes.json();
       const historyData = await historyRes.json();
+      const resvData = await resvRes.json();
       setStatus(statusData);
       setTrades(historyData.trades ?? []);
       setTradeTotal(historyData.total ?? 0);
+      setReservation(resvData.reservation ?? null);
     } catch {
       // silent
     } finally {
@@ -74,26 +79,29 @@ export default function TradingPage() {
     fetchData();
   }, [fetchData]);
 
-  async function handleRun() {
-    setRunning(true);
-    setRunResult(null);
+  async function handleReserve() {
+    setReserving(true);
+    setResvResult(null);
     try {
-      const res = await fetch("/api/trading/run", { method: "POST" });
+      const res = await fetch("/api/trading/reservation", { method: "POST" });
       const data = await res.json();
-      if (res.ok) {
-        setRunResult(
-          data.success ? `${data.action}: ${data.message}` : data.message,
-        );
+      if (res.ok && data.success) {
+        const msg =
+          data.action === "hold"
+            ? data.message
+            : `${data.action}: ${data.quantity}주 @ $${data.price} (주문번호: ${data.orderId})`;
+        setResvResult({ ok: true, msg });
         await fetchData();
       } else {
-        setRunResult(`오류: ${data.error}`);
+        setResvResult({ ok: false, msg: data.error ?? data.message });
       }
     } catch (err) {
-      setRunResult(
-        `오류: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
-      );
+      setResvResult({
+        ok: false,
+        msg: err instanceof Error ? err.message : "알 수 없는 오류",
+      });
     } finally {
-      setRunning(false);
+      setReserving(false);
     }
   }
 
@@ -197,22 +205,37 @@ export default function TradingPage() {
         </>
       )}
 
-      {/* Manual Run */}
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={handleRun}
-          disabled={running}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition"
-        >
-          {running ? "실행 중..." : "수동 실행"}
-        </button>
-        {runResult && (
-          <span
-            className={`text-sm ${runResult.startsWith("오류") ? "text-red-400" : "text-green-400"}`}
-          >
-            {runResult}
-          </span>
-        )}
+      {/* Reservation */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 mb-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleReserve}
+              disabled={reserving || !!reservation}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition"
+            >
+              {reserving ? "예약 중..." : reservation ? "예약됨 ✓" : "LOC 예약 주문"}
+            </button>
+            {resvResult && (
+              <span
+                className={`text-sm ${resvResult.ok ? "text-green-400" : "text-red-400"}`}
+              >
+                {resvResult.msg}
+              </span>
+            )}
+          </div>
+          {reservation && (
+            <div className="flex items-center gap-3 text-sm text-gray-400 flex-wrap">
+              <span className="text-green-400 font-medium">
+                {reservation.action} · {reservation.quantity}주 @ ${reservation.price.toFixed(2)}
+              </span>
+              <span>주문번호 {reservation.orderId}</span>
+              <span className="text-gray-600">
+                {new Date(reservation.createdAt).toLocaleTimeString("ko-KR")}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Trade History */}
