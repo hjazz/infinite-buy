@@ -100,12 +100,14 @@ export default function TradingPage() {
             무한매수법 자동매매 모니터링
           </p>
         </div>
-        <a
-          href="/"
-          className="text-sm text-gray-400 hover:text-gray-200 transition"
-        >
-          백테스트로 이동 &rarr;
-        </a>
+        <div className="flex gap-4 text-sm">
+          <a href="/" className="text-gray-400 hover:text-gray-200 transition">
+            V1 백테스트
+          </a>
+          <a href="/backtest-v4" className="text-gray-400 hover:text-gray-200 transition">
+            V4 시뮬레이터 &rarr;
+          </a>
+        </div>
       </div>
 
       {/* Status Cards */}
