@@ -78,7 +78,7 @@ export default function BacktestV4Page() {
         <p>• <span className="text-gray-300">리버스모드</span>(T &gt; rounds−1): 5일MA 기준 매도·쿼터매수, close &gt; avgCost×0.85 복귀</p>
       </div>
 
-      <BacktestForm onSubmit={handleSubmit} loading={loading} />
+      <BacktestForm onSubmit={handleSubmit} loading={loading} hideTargetReturn />
 
       {error && (
         <div className="mt-4 p-4 bg-red-900/30 border border-red-800 rounded-xl text-sm text-red-300">

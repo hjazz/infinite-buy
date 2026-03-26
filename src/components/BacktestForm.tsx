@@ -5,9 +5,10 @@ import type { BacktestInput } from "@/lib/types";
 interface Props {
   onSubmit: (input: BacktestInput) => void;
   loading: boolean;
+  hideTargetReturn?: boolean;
 }
 
-export default function BacktestForm({ onSubmit, loading }: Props) {
+export default function BacktestForm({ onSubmit, loading, hideTargetReturn }: Props) {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -17,7 +18,7 @@ export default function BacktestForm({ onSubmit, loading }: Props) {
       endDate: fd.get("endDate") as string,
       totalCapital: Number(fd.get("totalCapital")),
       rounds: Number(fd.get("rounds")),
-      targetReturn: Number(fd.get("targetReturn")) / 100,
+      targetReturn: hideTargetReturn ? 0.15 : Number(fd.get("targetReturn")) / 100,
       dcaMonthlyAmount: Number(fd.get("dcaMonthlyAmount")),
     });
   }
@@ -89,20 +90,22 @@ export default function BacktestForm({ onSubmit, loading }: Props) {
           />
         </div>
 
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">
-            목표 수익률 (%)
-          </label>
-          <input
-            name="targetReturn"
-            type="number"
-            defaultValue={10}
-            min={1}
-            max={50}
-            required
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-          />
-        </div>
+        {!hideTargetReturn && (
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">
+              목표 수익률 (%)
+            </label>
+            <input
+              name="targetReturn"
+              type="number"
+              defaultValue={10}
+              min={1}
+              max={50}
+              required
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm text-gray-400 mb-1">
