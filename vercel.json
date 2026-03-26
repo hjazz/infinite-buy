@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/trading/reservation",
-      "schedule": "0 22 * * 1-5"
+      "schedule": "0 15 * * 1-5"
     }
   ]
 }
