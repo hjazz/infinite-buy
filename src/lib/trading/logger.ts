@@ -1,8 +1,11 @@
 import { appendFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import type { TradeLog } from "./types";
+import { redis } from "../storage";
 
 const LOG_DIR = join(process.cwd(), "data", "logs");
+const REDIS_KEY = "trading:logs";
+const MAX_LOGS = 1000;
 
 function ensureLogDir(): void {
   if (!existsSync(LOG_DIR)) {
@@ -10,7 +13,12 @@ function ensureLogDir(): void {
   }
 }
 
-export function logTrade(log: TradeLog): void {
+export async function logTrade(log: TradeLog): Promise<void> {
+  if (redis) {
+    await redis.rpush(REDIS_KEY, JSON.stringify(log));
+    await redis.ltrim(REDIS_KEY, -MAX_LOGS, -1);
+    return;
+  }
   ensureLogDir();
   const month = new Date().toISOString().slice(0, 7);
   const file = join(LOG_DIR, `trades-${month}.jsonl`);

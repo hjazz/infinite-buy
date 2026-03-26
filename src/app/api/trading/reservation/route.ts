@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCurrentPrice } from "@/lib/kis/quote";
 import { determineAction, applyDecision } from "@/lib/trading/strategy";
 import { loadState, saveState, initState } from "@/lib/trading/state";
@@ -8,9 +8,12 @@ import {
   placeLimitBuy,
   placeLimitSell,
 } from "@/lib/kis/order";
-import { getTodayReservation, saveReservation } from "@/lib/trading/reservation";
+import {
+  getTodayReservation,
+  saveReservation,
+} from "@/lib/trading/reservation";
 import { logTrade } from "@/lib/trading/logger";
-import { notifyTrade, notifyError } from "@/lib/trading/notify";
+import { notifyTrade, notifyError, sendTelegram } from "@/lib/trading/notify";
 import type { KISConfig } from "@/lib/kis/types";
 import type { TradingConfig, TradeLog } from "@/lib/trading/types";
 
@@ -44,12 +47,7 @@ function loadConfigs(): { kis: KISConfig; trading: TradingConfig } | null {
   };
 }
 
-export async function GET() {
-  const reservation = getTodayReservation();
-  return NextResponse.json({ reservation });
-}
-
-export async function POST() {
+async function runReservation() {
   const configs = loadConfigs();
   if (!configs) {
     return NextResponse.json(
@@ -61,7 +59,7 @@ export async function POST() {
   const today = new Date().toISOString().split("T")[0];
 
   // 중복 예약 방지
-  const existing = getTodayReservation();
+  const existing = await getTodayReservation();
   if (existing) {
     return NextResponse.json(
       { error: `오늘(${today}) 이미 예약됨 (주문번호: ${existing.orderId})` },
@@ -70,10 +68,10 @@ export async function POST() {
   }
 
   // 상태 로드 / 초기화
-  let state = loadState();
+  let state = await loadState();
   if (!state) {
     state = initState(configs.trading);
-    saveState(state);
+    await saveState(state);
   }
 
   if (state.lastTradeDate === today) {
@@ -95,6 +93,7 @@ export async function POST() {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    await notifyError(`현재가 조회 실패: ${msg}`);
     return NextResponse.json(
       { error: `현재가 조회 실패: ${msg}` },
       { status: 500 },
@@ -105,16 +104,21 @@ export async function POST() {
   const decision = determineAction(configs.trading, state.cycle, currentPrice);
 
   if (decision.action === "hold") {
-    return NextResponse.json({ success: true, action: "hold", message: decision.reason });
+    await sendTelegram(
+      `<b>${configs.trading.ticker} 홀드</b>\n${decision.reason}\n현재가: $${currentPrice.toFixed(2)}`,
+    );
+    return NextResponse.json({
+      success: true,
+      action: "hold",
+      message: decision.reason,
+    });
   }
 
   const orderQuantity = Math.floor(decision.quantity);
   if (orderQuantity <= 0) {
-    return NextResponse.json({
-      success: true,
-      action: "hold",
-      message: `수량 부족 (${decision.quantity.toFixed(4)}주 < 1주) - 홀드`,
-    });
+    const msg = `수량 부족 (${decision.quantity.toFixed(4)}주 < 1주) - 홀드`;
+    await sendTelegram(`<b>${configs.trading.ticker} 홀드</b>\n${msg}`);
+    return NextResponse.json({ success: true, action: "hold", message: msg });
   }
 
   // LOC 예약 가격
@@ -126,8 +130,9 @@ export async function POST() {
       : 1 - configs.trading.locPriceMargin)
   ).toFixed(2);
 
-  // 예약주문 접수 (모의투자는 지정가 주문으로 대체)
+  // 주문 접수 (모의투자: 지정가 폴백, 장외 시간: 시뮬레이션 폴백)
   let orderId: string;
+  let simulated = false;
   try {
     let result;
     if (configs.kis.isMock) {
@@ -166,12 +171,23 @@ export async function POST() {
     orderId = result.ODNO;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await notifyError(`${configs.trading.ticker} 예약주문 실패: ${msg}`);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // 모의투자 장외 시간 오류 → 시뮬레이션으로 폴백
+    if (
+      configs.kis.isMock &&
+      (msg.includes("장시작전") ||
+        msg.includes("장종료") ||
+        msg.includes("장외"))
+    ) {
+      orderId = `SIM-${Date.now()}`;
+      simulated = true;
+    } else {
+      await notifyError(`${configs.trading.ticker} 예약주문 실패: ${msg}`);
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
   }
 
-  // 예약 상태 로컬 저장
-  saveReservation({
+  // 예약 상태 로컬/Redis 저장
+  await saveReservation({
     date: today,
     orderId,
     action: decision.action,
@@ -191,9 +207,10 @@ export async function POST() {
   };
   state.cycle = applyDecision(state.cycle, adjusted, configs.trading);
   state.lastTradeDate = today;
-  saveState(state);
+  await saveState(state);
 
   // 로그 기록
+  const prefix = simulated ? "[시뮬레이션] " : "[예약주문] ";
   const tradeLog: TradeLog = {
     timestamp: new Date().toISOString(),
     date: today,
@@ -208,9 +225,9 @@ export async function POST() {
     totalShares: state.cycle.totalShares,
     roundsUsed: state.cycle.roundsUsed,
     cashRemaining: state.cycle.cycleCash,
-    reason: decision.reason,
+    reason: prefix + decision.reason,
   };
-  logTrade(tradeLog);
+  await logTrade(tradeLog);
   await notifyTrade(tradeLog);
 
   return NextResponse.json({
@@ -220,5 +237,23 @@ export async function POST() {
     orderId,
     price: locPrice,
     quantity: orderQuantity,
+    simulated,
   });
+}
+
+// GET: Vercel Cron 호출 (Authorization: Bearer {CRON_SECRET})
+export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const auth = request.headers.get("authorization");
+    if (auth !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+  return runReservation();
+}
+
+// POST: 대시보드 수동 예약
+export async function POST() {
+  return runReservation();
 }

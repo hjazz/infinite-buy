@@ -1,7 +1,7 @@
 import type { KISConfig, KISResponse } from "./types";
-import { getAccessToken } from "./auth";
+import { getAccessToken, clearToken } from "./auth";
 
-export async function kisRequest<T>(
+async function doRequest<T>(
   config: KISConfig,
   method: "GET" | "POST",
   path: string,
@@ -30,10 +30,31 @@ export async function kisRequest<T>(
     body: method === "POST" ? JSON.stringify(body) : undefined,
   });
 
+  const text = await res.text();
+
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(`KIS API 오류 [${trId}]: ${res.status} ${text}`);
   }
 
-  return res.json();
+  return JSON.parse(text);
+}
+
+export async function kisRequest<T>(
+  config: KISConfig,
+  method: "GET" | "POST",
+  path: string,
+  trId: string,
+  params?: Record<string, string>,
+  body?: Record<string, string>,
+): Promise<KISResponse<T>> {
+  try {
+    return await doRequest<T>(config, method, path, trId, params, body);
+  } catch (err) {
+    // 토큰 만료 시 캐시 초기화 후 1회 재시도
+    if (err instanceof Error && err.message.includes("EGW00123")) {
+      clearToken();
+      return await doRequest<T>(config, method, path, trId, params, body);
+    }
+    throw err;
+  }
 }

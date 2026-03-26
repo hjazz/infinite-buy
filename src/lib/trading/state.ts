@@ -1,9 +1,11 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import type { TradingState, TradingConfig } from "./types";
+import { redis } from "../storage";
 
 const STATE_DIR = join(process.cwd(), "data");
 const STATE_FILE = join(STATE_DIR, "trading-state.json");
+const REDIS_KEY = "trading:state";
 
 function ensureDir(): void {
   if (!existsSync(STATE_DIR)) {
@@ -11,20 +13,25 @@ function ensureDir(): void {
   }
 }
 
-export function loadState(): TradingState | null {
+export async function loadState(): Promise<TradingState | null> {
+  if (redis) {
+    return await redis.get<TradingState>(REDIS_KEY);
+  }
   if (!existsSync(STATE_FILE)) return null;
-
   try {
-    const raw = readFileSync(STATE_FILE, "utf-8");
-    return JSON.parse(raw) as TradingState;
+    return JSON.parse(readFileSync(STATE_FILE, "utf-8")) as TradingState;
   } catch {
     return null;
   }
 }
 
-export function saveState(state: TradingState): void {
-  ensureDir();
+export async function saveState(state: TradingState): Promise<void> {
   state.updatedAt = new Date().toISOString();
+  if (redis) {
+    await redis.set(REDIS_KEY, state);
+    return;
+  }
+  ensureDir();
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
 }
 

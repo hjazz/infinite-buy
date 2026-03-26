@@ -30,10 +30,10 @@ export async function runTradingEngine(
   const today = new Date().toISOString().split("T")[0];
 
   // 1. 상태 로드 또는 초기화
-  let state = loadState();
+  let state = await loadState();
   if (!state) {
     state = initState(tradingConfig);
-    saveState(state);
+    await saveState(state);
     console.log("[Engine] 새 트레이딩 상태 초기화");
   }
 
@@ -189,7 +189,7 @@ export async function runTradingEngine(
 
   state.cycle = applyDecision(state.cycle, adjusted, tradingConfig);
   state.lastTradeDate = today;
-  saveState(state);
+  await saveState(state);
 
   // 7. 로그 기록
   const tradeLog: TradeLog = {
@@ -209,7 +209,7 @@ export async function runTradingEngine(
     reason: decision.reason,
   };
 
-  logTrade(tradeLog);
+  await logTrade(tradeLog);
   console.log(formatTradeLog(tradeLog));
   await notifyTrade(tradeLog);
 

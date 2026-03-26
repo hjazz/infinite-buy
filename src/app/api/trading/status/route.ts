@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { loadState } from "@/lib/trading/state";
 
 export async function GET() {
-  const state = loadState();
+  const state = await loadState();
 
   if (!state) {
     return NextResponse.json({ active: false, state: null });
