@@ -50,8 +50,6 @@ export default function TradingPage() {
   const [trades, setTrades] = useState<TradeLog[]>([]);
   const [tradeTotal, setTradeTotal] = useState(0);
   const [reservation, setReservation] = useState<ReservationState | null>(null);
-  const [reserving, setReserving] = useState(false);
-  const [resvResult, setResvResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -79,31 +77,6 @@ export default function TradingPage() {
     fetchData();
   }, [fetchData]);
 
-  async function handleReserve() {
-    setReserving(true);
-    setResvResult(null);
-    try {
-      const res = await fetch("/api/trading/reservation", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        const msg =
-          data.action === "hold"
-            ? data.message
-            : `${data.action}: ${data.quantity}주 @ $${data.price} (주문번호: ${data.orderId})`;
-        setResvResult({ ok: true, msg });
-        await fetchData();
-      } else {
-        setResvResult({ ok: false, msg: data.error ?? data.message });
-      }
-    } catch (err) {
-      setResvResult({
-        ok: false,
-        msg: err instanceof Error ? err.message : "알 수 없는 오류",
-      });
-    } finally {
-      setReserving(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -205,37 +178,22 @@ export default function TradingPage() {
         </>
       )}
 
-      {/* Reservation */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 mb-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleReserve}
-              disabled={reserving || !!reservation}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition"
-            >
-              {reserving ? "예약 중..." : reservation ? "예약됨 ✓" : "LOC 예약 주문"}
-            </button>
-            {resvResult && (
-              <span
-                className={`text-sm ${resvResult.ok ? "text-green-400" : "text-red-400"}`}
-              >
-                {resvResult.msg}
-              </span>
-            )}
+      {/* Today's Reservation Status */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 mb-6">
+        {reservation ? (
+          <div className="flex items-center gap-3 text-sm flex-wrap">
+            <span className="text-green-400 font-medium">오늘 예약됨 ✓</span>
+            <span className="text-gray-300">
+              {reservation.action} · {reservation.quantity}주 @ ${reservation.price.toFixed(2)}
+            </span>
+            <span className="text-gray-500">주문번호 {reservation.orderId}</span>
+            <span className="text-gray-600">
+              {new Date(reservation.createdAt).toLocaleTimeString("ko-KR")}
+            </span>
           </div>
-          {reservation && (
-            <div className="flex items-center gap-3 text-sm text-gray-400 flex-wrap">
-              <span className="text-green-400 font-medium">
-                {reservation.action} · {reservation.quantity}주 @ ${reservation.price.toFixed(2)}
-              </span>
-              <span>주문번호 {reservation.orderId}</span>
-              <span className="text-gray-600">
-                {new Date(reservation.createdAt).toLocaleTimeString("ko-KR")}
-              </span>
-            </div>
-          )}
-        </div>
+        ) : (
+          <span className="text-sm text-gray-500">오늘 예약 없음 (매일 KST 07:00 자동 실행)</span>
+        )}
       </div>
 
       {/* Trade History */}
