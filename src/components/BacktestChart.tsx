@@ -123,7 +123,9 @@ export default function BacktestChart({ records, buyHold, dca }: Props) {
                 buyPoint: "매수",
                 sellPoint: "매도",
               };
-              return [`$${Number(value).toFixed(2)}`, labels[String(name)] ?? String(name)];
+              const numVal = Number(value);
+              if (isNaN(numVal)) return null;
+              return [`$${numVal.toFixed(2)}`, labels[String(name)] ?? String(name)];
             }}
             labelFormatter={(label) => `날짜: ${String(label)}`}
           />
@@ -148,8 +150,9 @@ export default function BacktestChart({ records, buyHold, dca }: Props) {
             yAxisId="portfolio"
             type="monotone"
             dataKey="portfolioValue"
-            fill="#3b82f620"
-            stroke="none"
+            fill="#3b82f630"
+            stroke="#3b82f6"
+            strokeWidth={2}
           />
 
           {/* Buy & Hold line */}
