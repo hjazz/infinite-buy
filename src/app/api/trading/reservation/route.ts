@@ -82,8 +82,12 @@ async function runReservation() {
   }
 
   // 현재가 조회
-  const exchangeCode =
-    configs.trading.exchange === "NASD" ? "NAS" : configs.trading.exchange;
+  const exchangeMap: Record<string, string> = {
+    NASD: "NAS",
+    NYSE: "NYS",
+    AMEX: "AMS",
+  };
+  const exchangeCode = exchangeMap[configs.trading.exchange] ?? "NAS";
   let currentPrice: number;
   try {
     currentPrice = await getCurrentPrice(
