@@ -9,6 +9,10 @@ const actionLabels: Record<string, string> = {
   skip: "스킵",
 };
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function formatTelegramMessage(log: TradeLog): string {
   const lines = [
     `<b>${log.ticker} ${actionLabels[log.action] || log.action}</b>`,
@@ -30,7 +34,7 @@ function formatTelegramMessage(log: TradeLog): string {
     `라운드: ${log.roundsUsed}`,
     `잔여현금: $${log.cashRemaining.toFixed(2)}`,
     ``,
-    `<i>${log.reason}</i>`,
+    `<i>${escapeHtml(log.reason)}</i>`,
   );
 
   return lines.join("\n");
