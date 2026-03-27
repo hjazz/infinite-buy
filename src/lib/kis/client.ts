@@ -50,8 +50,12 @@ export async function kisRequest<T>(
   try {
     return await doRequest<T>(config, method, path, trId, params, body);
   } catch (err) {
-    // 토큰 만료 시 캐시 초기화 후 1회 재시도
-    if (err instanceof Error && err.message.includes("EGW00123")) {
+    // 토큰 만료(EGW00123) 또는 HTTP 401/403 → 캐시 초기화 후 1회 재시도
+    if (err instanceof Error && (
+      err.message.includes("EGW00123") ||
+      err.message.includes(": 401 ") ||
+      err.message.includes(": 403 ")
+    )) {
       clearToken();
       return await doRequest<T>(config, method, path, trId, params, body);
     }

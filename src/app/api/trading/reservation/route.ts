@@ -241,16 +241,19 @@ async function runReservation() {
   });
 }
 
-// GET: Vercel Cron 호출 (Authorization: Bearer {CRON_SECRET})
+// GET: Vercel Cron 호출 (Authorization: Bearer {CRON_SECRET}) 또는 상태 조회
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const auth = request.headers.get("authorization");
+
+  // CRON_SECRET 인증 성공 시에만 예약 실행
+  if (cronSecret && auth === `Bearer ${cronSecret}`) {
+    return runReservation();
   }
-  return runReservation();
+
+  // 그 외 (대시보드 상태 조회): 현재 예약 정보만 반환
+  const reservation = await getTodayReservation();
+  return NextResponse.json({ reservation: reservation ?? null });
 }
 
 // POST: 대시보드 수동 예약
