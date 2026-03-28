@@ -7,6 +7,7 @@ import BacktestForm from "@/components/BacktestForm";
 import BacktestChart from "@/components/BacktestChart";
 import ResultSummary from "@/components/ResultSummary";
 import TradeTable from "@/components/TradeTable";
+import NavTabs from "@/components/NavTabs";
 
 export default function BacktestV4Page() {
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -50,21 +51,12 @@ export default function BacktestV4Page() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">무한매수법 V4.0 시뮬레이터</h1>
-          <p className="text-sm text-gray-500">
-            별지점·동적 매수금·리버스모드 적용 — 과거 데이터 기반 시뮬레이션
-          </p>
-        </div>
-        <div className="flex gap-4 text-sm">
-          <a href="/" className="text-gray-400 hover:text-gray-200 transition">
-            V1 백테스트
-          </a>
-          <a href="/trading" className="text-gray-400 hover:text-gray-200 transition">
-            트레이딩 대시보드 &rarr;
-          </a>
-        </div>
+      <NavTabs />
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-1">무한매수법 V4.0 시뮬레이터</h1>
+        <p className="text-sm text-gray-500">
+          별지점·동적 매수금·리버스모드 적용 — 과거 데이터 기반 시뮬레이션
+        </p>
       </div>
 
       {/* V4 핵심 규칙 요약 */}
