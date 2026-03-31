@@ -7,10 +7,10 @@ interface CalcInput {
   currentV: number;
   shares: number;
   pool: number;
-  poolUsageLimit: number; // %
+  poolUsageLimit: number;
   G: number;
   depositPerCycle: number;
-  bandPct: number; // %
+  bandPct: number;
 }
 
 const DEFAULT: CalcInput = {
@@ -45,131 +45,189 @@ export default function VRCalcPage() {
     const band = bandPct / 100;
     const usageLimit = poolUsageLimit / 100;
 
-    // 다음 V 계산
     const nextV = currentV + pool / G + depositPerCycle;
     const nextPool = pool + depositPerCycle;
 
-    // 밴드 (주식 평가금 기준)
     const upperBand = nextV * (1 + band);
     const lowerBand = nextV * (1 - band);
-
-    // 트리거 가격 (주당)
-    const sellTriggerPrice = upperBand / shares;
     const buyTriggerPrice = lowerBand / shares;
+    const sellTriggerPrice = upperBand / shares;
 
-    // 매수 계산 (하단 밴드 도달 시)
-    const buyNeed = nextV - lowerBand; // = nextV * band
+    const buyNeed = nextV - lowerBand;
     const maxBuy = nextPool * usageLimit;
     const actualBuy = Math.min(buyNeed, maxBuy, nextPool);
-    const buyShares = buyTriggerPrice > 0 ? actualBuy / buyTriggerPrice : 0;
+    const sellAmount = upperBand - nextV;
 
-    // 매도 계산 (상단 밴드 도달 시)
-    const sellAmount = upperBand - nextV; // = nextV * band
-    const sellShares = sellTriggerPrice > 0 ? sellAmount / sellTriggerPrice : 0;
+    // 매수 사다리: k번째 매수가 = nextV / (shares + k - 1)
+    // 해석: 매수 직전 (shares+k-1)주 × 가격 = nextV가 되는 시점에 1주 추가 매수
+    type BuyRow = { k: number; totalShares: number; price: number; pool: number };
+    const buyRows: BuyRow[] = [];
+    let buyPool = nextPool;
+    for (let k = 1; k <= 50; k++) {
+      const price = nextV / (shares + k - 1);
+      if (buyPool < price) break;
+      buyPool -= price;
+      buyRows.push({ k, totalShares: shares + k, price, pool: buyPool });
+    }
+
+    // 매도 사다리: k번째 매도가 = nextV / (shares - k)
+    // 해석: 매도 후 (shares-k)주 × 가격 = nextV가 되는 시점에 1주 매도
+    type SellRow = { k: number; remainShares: number; price: number; pool: number };
+    const sellRows: SellRow[] = [];
+    let sellPool = nextPool;
+    for (let k = 1; k <= 50; k++) {
+      const remainShares = shares - k;
+      if (remainShares <= 0) break;
+      const price = nextV / remainShares;
+      sellPool += price;
+      sellRows.push({ k, remainShares, price, pool: sellPool });
+    }
 
     return {
       nextV,
       nextPool,
       upperBand,
       lowerBand,
-      sellTriggerPrice,
       buyTriggerPrice,
+      sellTriggerPrice,
       buyNeed,
       maxBuy,
       actualBuy,
-      buyShares,
       sellAmount,
-      sellShares,
       poolLimited: buyNeed > maxBuy,
+      buyRows,
+      sellRows,
     };
   }, [form]);
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8">
+    <main className="max-w-5xl mx-auto px-4 py-8">
       <NavTabs />
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold mb-1">VR 라운드 계산기</h1>
-        <p className="text-gray-400 text-sm">2주 사이클 기준 다음 라운드의 밴드 및 매수/매도 주문을 계산합니다.</p>
+        <p className="text-gray-400 text-sm">2주 사이클 기준 1주 단위 매수/매도 잔량주문 가격을 계산합니다.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* 입력 폼 */}
-        <div className="bg-gray-800 rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">입력값</h2>
-
+      {/* 입력 */}
+      <div className="bg-gray-800 rounded-xl p-5 mb-5">
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">입력값</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           <Field label="현재 V ($)" name="currentV" value={form.currentV} onChange={handleChange} />
-          <Field label="현재 보유수량 (주)" name="shares" value={form.shares} onChange={handleChange} step="0.0001" />
+          <Field label="보유수량 (주)" name="shares" value={form.shares} onChange={handleChange} step="1" />
           <Field label="Pool ($)" name="pool" value={form.pool} onChange={handleChange} />
-          <Field label="적립금 / 사이클 ($)" name="depositPerCycle" value={form.depositPerCycle} onChange={handleChange} />
-          <Field label="G (그라디언트)" name="G" value={form.G} onChange={handleChange} step="1" />
+          <Field label="적립금/사이클 ($)" name="depositPerCycle" value={form.depositPerCycle} onChange={handleChange} />
+          <Field label="G" name="G" value={form.G} onChange={handleChange} step="1" />
           <Field label="밴드폭 (%)" name="bandPct" value={form.bandPct} onChange={handleChange} step="5" min={5} max={30} />
-          <Field label="Pool 사용한도 (%)" name="poolUsageLimit" value={form.poolUsageLimit} onChange={handleChange} step="5" min={10} max={100} />
-        </div>
-
-        {/* 결과 */}
-        <div className="space-y-4">
-          {result ? (
-            <>
-              {/* 다음 라운드 V */}
-              <div className="bg-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">다음 라운드</h2>
-                <Row label="다음 V" value={`$${fmt(result.nextV)}`} highlight />
-                <Row label="다음 Pool" value={`$${fmt(result.nextPool)}`} />
-              </div>
-
-              {/* 밴드 */}
-              <div className="bg-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
-                  밴드 (±{form.bandPct}%)
-                </h2>
-                <Row label="상단 밴드 (평가금)" value={`$${fmt(result.upperBand)}`} color="text-red-400" />
-                <Row label="하단 밴드 (평가금)" value={`$${fmt(result.lowerBand)}`} color="text-blue-400" />
-              </div>
-
-              {/* 트리거 가격 */}
-              <div className="bg-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">트리거 가격 (주당)</h2>
-                <Row label="매도 트리거" value={`$${fmt(result.sellTriggerPrice)}`} color="text-red-400" />
-                <Row label="매수 트리거" value={`$${fmt(result.buyTriggerPrice)}`} color="text-blue-400" />
-              </div>
-
-              {/* 매수 주문 */}
-              <div className="bg-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
-                  매수 주문 (하단 밴드 도달 시)
-                </h2>
-                <Row label="필요 금액" value={`$${fmt(result.buyNeed)}`} />
-                <Row label="Pool 최대 사용 가능" value={`$${fmt(result.maxBuy)}`} />
-                <Row
-                  label="실제 매수금액"
-                  value={`$${fmt(result.actualBuy)}`}
-                  highlight
-                  color={result.poolLimited ? "text-yellow-400" : "text-blue-400"}
-                />
-                <Row label="매수 수량" value={`${fmt(result.buyShares, 4)}주`} />
-                {result.poolLimited && (
-                  <p className="text-xs text-yellow-400 mt-2">
-                    * Pool 사용한도 제한으로 필요 금액 전액 매수 불가
-                  </p>
-                )}
-              </div>
-
-              {/* 매도 주문 */}
-              <div className="bg-gray-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
-                  매도 주문 (상단 밴드 도달 시)
-                </h2>
-                <Row label="매도 금액" value={`$${fmt(result.sellAmount)}`} highlight color="text-red-400" />
-                <Row label="매도 수량" value={`${fmt(result.sellShares, 4)}주`} />
-              </div>
-            </>
-          ) : (
-            <div className="bg-gray-800 rounded-xl p-6 text-gray-500 text-sm">
-              보유수량과 G 값을 입력해주세요.
-            </div>
-          )}
+          <Field label="Pool 한도 (%)" name="poolUsageLimit" value={form.poolUsageLimit} onChange={handleChange} step="5" min={10} max={100} />
         </div>
       </div>
+
+      {result && (
+        <>
+          {/* 요약 */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-5">
+            <SummaryCard label="다음 V" value={`$${fmt(result.nextV)}`} />
+            <SummaryCard label="다음 Pool" value={`$${fmt(result.nextPool)}`} />
+            <SummaryCard
+              label="하단 밴드"
+              value={`$${fmt(result.lowerBand)}`}
+              color="text-blue-400"
+              sub={`매수 트리거 $${fmt(result.buyTriggerPrice)}/주`}
+            />
+            <SummaryCard
+              label="상단 밴드"
+              value={`$${fmt(result.upperBand)}`}
+              color="text-red-400"
+              sub={`매도 트리거 $${fmt(result.sellTriggerPrice)}/주`}
+            />
+          </div>
+
+          {/* 주문 테이블 */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {/* 매수 테이블 */}
+            <div className="bg-gray-800 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-700">
+                <h2 className="text-sm font-semibold text-blue-400">매수 잔량주문</h2>
+                <p className="text-xs text-gray-500 mt-0.5">주문가 = V ÷ 매수 전 보유수량</p>
+              </div>
+              <div className="overflow-y-auto max-h-[480px]">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-800">
+                    <tr className="border-b border-gray-700">
+                      <th className="px-4 py-2 text-left text-xs text-gray-500 font-medium">#</th>
+                      <th className="px-4 py-2 text-right text-xs text-gray-500 font-medium">잔여개수</th>
+                      <th className="px-4 py-2 text-right text-xs text-gray-500 font-medium">매수점</th>
+                      <th className="px-4 py-2 text-right text-xs text-gray-500 font-medium">Pool</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="bg-yellow-400/10 border-b border-gray-700">
+                      <td className="px-4 py-2 text-yellow-400 font-semibold text-xs">현재</td>
+                      <td className="px-4 py-2 text-right text-yellow-400 font-semibold">{form.shares}</td>
+                      <td className="px-4 py-2 text-right text-gray-500">—</td>
+                      <td className="px-4 py-2 text-right text-yellow-400 font-semibold font-mono">{fmt(result.nextPool)}</td>
+                    </tr>
+                    {result.buyRows.map((row) => (
+                      <tr key={row.k} className="border-b border-gray-700/40 hover:bg-gray-700/30 transition-colors">
+                        <td className="px-4 py-2 text-gray-500 text-xs">{row.k}</td>
+                        <td className="px-4 py-2 text-right text-white">{row.totalShares}</td>
+                        <td className="px-4 py-2 text-right text-blue-400 font-mono font-semibold">{fmt(row.price)}</td>
+                        <td className="px-4 py-2 text-right text-gray-300 font-mono">{fmt(row.pool)}</td>
+                      </tr>
+                    ))}
+                    {result.buyRows.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-4 text-center text-gray-500 text-xs">Pool 잔액 부족</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 매도 테이블 */}
+            <div className="bg-gray-800 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-700">
+                <h2 className="text-sm font-semibold text-red-400">매도 잔량주문</h2>
+                <p className="text-xs text-gray-500 mt-0.5">주문가 = V ÷ 매도 후 잔여수량</p>
+              </div>
+              <div className="overflow-y-auto max-h-[480px]">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-800">
+                    <tr className="border-b border-gray-700">
+                      <th className="px-4 py-2 text-left text-xs text-gray-500 font-medium">#</th>
+                      <th className="px-4 py-2 text-right text-xs text-gray-500 font-medium">잔여개수</th>
+                      <th className="px-4 py-2 text-right text-xs text-gray-500 font-medium">매도점</th>
+                      <th className="px-4 py-2 text-right text-xs text-gray-500 font-medium">Pool</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="bg-yellow-400/10 border-b border-gray-700">
+                      <td className="px-4 py-2 text-yellow-400 font-semibold text-xs">현재</td>
+                      <td className="px-4 py-2 text-right text-yellow-400 font-semibold">{form.shares}</td>
+                      <td className="px-4 py-2 text-right text-gray-500">—</td>
+                      <td className="px-4 py-2 text-right text-yellow-400 font-semibold font-mono">{fmt(result.nextPool)}</td>
+                    </tr>
+                    {result.sellRows.map((row) => (
+                      <tr key={row.k} className="border-b border-gray-700/40 hover:bg-gray-700/30 transition-colors">
+                        <td className="px-4 py-2 text-gray-500 text-xs">{row.k}</td>
+                        <td className="px-4 py-2 text-right text-white">{row.remainShares}</td>
+                        <td className="px-4 py-2 text-right text-red-400 font-mono font-semibold">{fmt(row.price)}</td>
+                        <td className="px-4 py-2 text-right text-gray-300 font-mono">{fmt(row.pool)}</td>
+                      </tr>
+                    ))}
+                    {result.sellRows.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-4 text-center text-gray-500 text-xs">보유수량 없음</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
@@ -208,23 +266,22 @@ function Field({
   );
 }
 
-function Row({
+function SummaryCard({
   label,
   value,
-  highlight,
   color,
+  sub,
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
   color?: string;
+  sub?: string;
 }) {
   return (
-    <div className="flex justify-between items-center py-1.5 border-b border-gray-700 last:border-0">
-      <span className="text-sm text-gray-400">{label}</span>
-      <span className={`text-sm font-mono font-medium ${color ?? "text-white"} ${highlight ? "text-base" : ""}`}>
-        {value}
-      </span>
+    <div className="bg-gray-800 rounded-xl p-4">
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className={`text-lg font-bold font-mono ${color ?? "text-white"}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
     </div>
   );
 }
