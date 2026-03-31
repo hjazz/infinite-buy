@@ -126,8 +126,8 @@ export default function VRCalcPage() {
         <>
           {/* 요약 */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-5">
-            <SummaryCard label="다음 V" value={`$${fmt(result.nextV)}`} />
-            <SummaryCard label="다음 Pool" value={`$${fmt(result.nextPool)}`} />
+            <SummaryCard label="다음 V" value={`$${fmt(result.nextV)}`} sub={`V + Pool/G + 적립금 = ${fmt(form.currentV)} + ${fmt(form.pool / form.G)} + ${fmt(form.depositPerCycle)}`} />
+            <SummaryCard label="다음 Pool" value={`$${fmt(result.nextPool)}`} sub={`Pool + 적립금 = ${fmt(form.pool)} + ${fmt(form.depositPerCycle)}`} />
             <SummaryCard
               label="하단 밴드"
               value={`$${fmt(result.lowerBand)}`}
