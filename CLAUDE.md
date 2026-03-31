@@ -81,7 +81,7 @@ src/
 ## 자동매매 시스템
 
 ### Vercel Cron
-- 스케줄: `0 15 * * 1-5` (UTC 15:00 = KST 00:00 = ET 10:00 AM, 평일)
+- 스케줄: `0 14 * * 1-5` (UTC 14:00 = KST 23:00 = ET 9:00 AM, 평일)
 - 엔드포인트: `GET /api/trading/reservation`
 - 인증: `Authorization: Bearer {CRON_SECRET}`
 - 단순 GET (인증 없음)은 현재 예약 상태만 반환 (예약 실행 안 함)
