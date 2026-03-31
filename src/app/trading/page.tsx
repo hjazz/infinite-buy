@@ -186,7 +186,7 @@ export default function TradingPage() {
             </span>
           </div>
         ) : (
-          <span className="text-sm text-gray-500">오늘 예약 없음 (매일 KST 07:00 자동 실행)</span>
+          <span className="text-sm text-gray-500">오늘 예약 없음 (평일 KST 00:00 자동 실행)</span>
         )}
       </div>
 
