@@ -7,6 +7,7 @@ const tabs = [
   { label: "무한매수법 V1", href: "/" },
   { label: "V4 시뮬레이터", href: "/backtest-v4" },
   { label: "밸류리밸런싱", href: "/backtest-vr" },
+  { label: "VR 계산기", href: "/vr-calc" },
   { label: "트레이딩 대시보드", href: "/trading" },
 ];
 
