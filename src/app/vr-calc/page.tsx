@@ -58,29 +58,29 @@ export default function VRCalcPage() {
     const actualBuy = Math.min(buyNeed, maxBuy, nextPool);
     const sellAmount = upperBand - nextV;
 
-    // 매수 사다리: k번째 매수가 = nextV / (shares + k - 1)
-    // 해석: 매수 직전 (shares+k-1)주 × 가격 = nextV가 되는 시점에 1주 추가 매수
+    // 매수 사다리: k번째 매수가 = lowerBand / (shares + k - 1)
+    // 해석: 매수 직전 (shares+k-1)주 × 가격 = 하단밴드가 되는 시점에 1주 추가 매수
     type BuyRow = { k: number; totalShares: number; price: number; pool: number };
     const buyRows: BuyRow[] = [];
     let buyPool = nextPool;
     for (let k = 1; k <= 50; k++) {
-      const price = nextV / (shares + k - 1);
+      const price = lowerBand / (shares + k - 1);
       if (buyPool < price) break;
       buyPool -= price;
       buyRows.push({ k, totalShares: shares + k, price, pool: buyPool });
     }
 
-    // 매도 사다리: k번째 매도가 = nextV / (shares - k)
-    // 해석: 매도 후 (shares-k)주 × 가격 = nextV가 되는 시점에 1주 매도
+    // 매도 사다리: k번째 매도가 = upperBand / (shares - k + 1)
+    // 해석: 매도 직전 (shares-k+1)주 × 가격 = 상단밴드가 되는 시점에 1주 매도
     type SellRow = { k: number; remainShares: number; price: number; pool: number };
     const sellRows: SellRow[] = [];
     let sellPool = nextPool;
     for (let k = 1; k <= 50; k++) {
-      const remainShares = shares - k;
-      if (remainShares <= 0) break;
-      const price = nextV / remainShares;
+      const beforeSellShares = shares - k + 1;
+      if (beforeSellShares <= 0) break;
+      const price = upperBand / beforeSellShares;
       sellPool += price;
-      sellRows.push({ k, remainShares, price, pool: sellPool });
+      sellRows.push({ k, remainShares: shares - k, price, pool: sellPool });
     }
 
     return {
@@ -148,7 +148,7 @@ export default function VRCalcPage() {
             <div className="bg-gray-800 rounded-xl overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-700">
                 <h2 className="text-sm font-semibold text-blue-400">매수 잔량주문</h2>
-                <p className="text-xs text-gray-500 mt-0.5">주문가 = V ÷ 매수 전 보유수량</p>
+                <p className="text-xs text-gray-500 mt-0.5">주문가 = 하단밴드 ÷ 매수 전 보유수량</p>
               </div>
               <div className="overflow-y-auto max-h-[480px]">
                 <table className="w-full text-sm">
@@ -189,7 +189,7 @@ export default function VRCalcPage() {
             <div className="bg-gray-800 rounded-xl overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-700">
                 <h2 className="text-sm font-semibold text-red-400">매도 잔량주문</h2>
-                <p className="text-xs text-gray-500 mt-0.5">주문가 = V ÷ 매도 후 잔여수량</p>
+                <p className="text-xs text-gray-500 mt-0.5">주문가 = 상단밴드 ÷ 매도 전 보유수량</p>
               </div>
               <div className="overflow-y-auto max-h-[480px]">
                 <table className="w-full text-sm">
