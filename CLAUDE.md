@@ -38,7 +38,6 @@ src/
 │   │   └── trading/
 │   │       ├── reservation/route.ts # LOC 예약 제출 (Vercel Cron 1: KST 23:00)
 │   │       ├── settle/route.ts      # 체결 정산 (Vercel Cron 2: 다음날 KST 06:30)
-│   │       ├── reset/route.ts       # 1회성 초기화 (Bearer 인증 필요)
 │   │       ├── run/route.ts         # 수동 예약 제출
 │   │       ├── status/route.ts      # 상태 조회 (computed 포함)
 │   │       └── history/route.ts     # 체결 이력
@@ -136,10 +135,6 @@ src/
 - `CycleState`: `cycleNumber, startDate, totalShares, avgCost, T, cycleCash, totalCash, mode, recentCloses, reverseFirstDay`
 - `TradingState`: `config, cycle, lastTradeDate, lastSettleDate, createdAt, updatedAt`
 - PendingDay: Redis `trading:pending:{date}` (TTL 72h) + 파일 `data/pending/{date}.json`
-
-### 1회성 초기화 (모의→실전 전환용)
-- `POST /api/trading/reset` (Bearer 인증) — Redis/파일 모두 wipe 후 새 state init
-- 작업 완료 후 라우트 삭제할 것
 
 ---
 
