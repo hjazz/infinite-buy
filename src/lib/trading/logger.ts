@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import type { TradeLog } from "./types";
+import type { TradeLog, OrderKind } from "./types";
 import { redis } from "../storage";
 
 const LOG_DIR = join(process.cwd(), "data", "logs");
@@ -25,41 +25,32 @@ export async function logTrade(log: TradeLog): Promise<void> {
   appendFileSync(file, JSON.stringify(log) + "\n", "utf-8");
 }
 
-const actionLabels: Record<string, string> = {
-  buy_full: "매수(1배)",
-  buy_half: "매수(0.5배)",
-  sell: "전량매도",
-  quarter_sell: "쿼터손절(25%)",
-  hold: "홀드",
+export const kindLabels: Record<OrderKind, string> = {
+  buy_half_star: "매수 0.5×별지점",
+  buy_half_avg: "매수 0.5×평단",
+  buy_full_star: "매수 1×별지점",
+  quarter_sell_star: "쿼터매도",
+  final_sell_target: "익절매도",
+  reverse_moc_sell: "리버스 MOC 매도",
+  reverse_ladder_sell: "리버스 ladder 매도",
+  reverse_quarter_buy: "리버스 쿼터매수",
 };
 
 export function formatTradeLog(log: TradeLog): string {
-  const lines = [
+  return [
     ``,
-    `━━━ ${log.date} ${log.ticker} ━━━`,
-    `  액션: ${actionLabels[log.action] || log.action}`,
-    `  가격: $${log.price.toFixed(2)}`,
-  ];
-
-  if (log.action !== "hold") {
-    lines.push(
-      `  수량: ${log.quantity.toFixed(4)}주`,
-      `  금액: $${log.amount.toFixed(2)}`,
-    );
-    if (log.orderId) {
-      lines.push(`  주문번호: ${log.orderId}`);
-    }
-  }
-
-  lines.push(
+    `━━━ ${log.date} ${log.ticker} (${log.mode}) ━━━`,
+    `  체결: ${kindLabels[log.kind] || log.kind}`,
+    `  단가: $${log.price.toFixed(2)}`,
+    `  수량: ${log.quantity}주`,
+    `  금액: $${log.amount.toFixed(2)}`,
+    `  주문번호: ${log.orderId}`,
     `  사이클: #${log.cycleNumber}`,
     `  평균단가: $${log.avgCost.toFixed(2)}`,
-    `  보유수량: ${log.totalShares.toFixed(4)}주`,
-    `  사용라운드: ${log.roundsUsed}`,
+    `  보유수량: ${log.totalShares}주`,
+    `  T: ${log.T.toFixed(2)}`,
     `  잔여현금: $${log.cashRemaining.toFixed(2)}`,
     `  사유: ${log.reason}`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-  );
-
-  return lines.join("\n");
+  ].join("\n");
 }

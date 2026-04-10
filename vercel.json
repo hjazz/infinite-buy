@@ -3,6 +3,10 @@
     {
       "path": "/api/trading/reservation",
       "schedule": "0 14 * * 1-5"
+    },
+    {
+      "path": "/api/trading/settle",
+      "schedule": "30 21 * * 1-5"
     }
   ]
 }

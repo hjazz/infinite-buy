@@ -3,7 +3,7 @@ config({ path: ".env.local" });
 config(); // fallback to .env
 import type { KISConfig } from "../lib/kis/types";
 import type { TradingConfig } from "../lib/trading/types";
-import { runTradingEngine } from "../lib/trading/engine";
+import { runV4Reservation } from "../lib/trading/v4-runner";
 
 function loadKISConfig(): KISConfig {
   const required = ["KIS_APP_KEY", "KIS_APP_SECRET", "KIS_ACCOUNT_NO"];
@@ -34,7 +34,7 @@ function loadTradingConfig(): TradingConfig {
     ticker: process.env.TRADING_TICKER || "TQQQ",
     totalCapital: Number(process.env.TRADING_TOTAL_CAPITAL) || 10000,
     rounds: Number(process.env.TRADING_ROUNDS) || 40,
-    targetReturn: Number(process.env.TRADING_TARGET_RETURN) || 0.1,
+    targetReturn: Number(process.env.TRADING_TARGET_RETURN) || 0.15,
     exchange:
       (process.env.TRADING_EXCHANGE as "NASD" | "NYSE" | "AMEX") || "NASD",
     locPriceMargin: Number(process.env.TRADING_LOC_MARGIN) || 0.05,
@@ -44,7 +44,7 @@ function loadTradingConfig(): TradingConfig {
 
 async function main() {
   console.log("═══════════════════════════════════════");
-  console.log("  무한매수법 자동매매 엔진 v1.0");
+  console.log("  무한매수법 V4 LOC 예약 제출");
   console.log("═══════════════════════════════════════");
 
   const kisConfig = loadKISConfig();
@@ -57,10 +57,14 @@ async function main() {
   console.log(`목표 수익률: ${(tradingConfig.targetReturn * 100).toFixed(1)}%`);
   console.log("───────────────────────────────────────");
 
-  const result = await runTradingEngine(kisConfig, tradingConfig);
+  const result = await runV4Reservation(kisConfig, tradingConfig);
 
   if (result.success) {
     console.log(`\n완료: ${result.message}`);
+    console.log(`제출: ${result.submitted}건 / 실패: ${result.failed}건`);
+    for (const o of result.orders) {
+      console.log(`  · ${o.kind} ${o.quantity}주 @ $${o.price.toFixed(2)} (${o.orderId})`);
+    }
   } else {
     console.error(`\n실패: ${result.message}`);
     process.exit(1);

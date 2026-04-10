@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import NavTabs from "@/components/NavTabs";
-import type { TradeLog } from "@/lib/trading/types";
-import type { ReservationState } from "@/lib/trading/reservation";
+import type { TradeLog, OrderKind, PendingDay } from "@/lib/trading/types";
 
 interface ComputedState {
+  starPoint: number;
   targetPrice: number;
-  roundAmount: number;
+  reverseExitPrice: number;
+  ma5: number;
+  nextBuyAmount: number;
   portfolioValue: number;
   roundsRemaining: number;
   capitalUsageRate: number;
@@ -27,46 +29,53 @@ interface TradingStatus {
       startDate: string;
       totalShares: number;
       avgCost: number;
-      roundsUsed: number;
+      T: number;
       cycleCash: number;
       totalCash: number;
+      mode: "normal" | "reverse";
+      recentCloses: number[];
+      reverseFirstDay: boolean;
     };
     lastTradeDate: string;
+    lastSettleDate: string;
     createdAt: string;
     updatedAt: string;
     computed: ComputedState;
   } | null;
 }
 
-const actionStyles: Record<string, { label: string; color: string }> = {
-  buy_full: { label: "매수(1배)", color: "text-red-400" },
-  buy_half: { label: "매수(0.5배)", color: "text-red-300" },
-  sell: { label: "전량매도", color: "text-blue-400" },
-  quarter_sell: { label: "쿼터손절", color: "text-yellow-400" },
-  hold: { label: "홀드", color: "text-gray-400" },
+const kindStyles: Record<OrderKind, { label: string; color: string }> = {
+  buy_half_star: { label: "매수 0.5×별", color: "text-red-300" },
+  buy_half_avg: { label: "매수 0.5×평단", color: "text-red-300" },
+  buy_full_star: { label: "매수 1×별", color: "text-red-400" },
+  quarter_sell_star: { label: "쿼터매도", color: "text-yellow-400" },
+  final_sell_target: { label: "익절매도", color: "text-blue-400" },
+  reverse_moc_sell: { label: "리버스 MOC", color: "text-purple-400" },
+  reverse_ladder_sell: { label: "리버스 매도", color: "text-purple-300" },
+  reverse_quarter_buy: { label: "리버스 쿼터매수", color: "text-pink-300" },
 };
 
 export default function TradingPage() {
   const [status, setStatus] = useState<TradingStatus | null>(null);
   const [trades, setTrades] = useState<TradeLog[]>([]);
   const [tradeTotal, setTradeTotal] = useState(0);
-  const [reservation, setReservation] = useState<ReservationState | null>(null);
+  const [pending, setPending] = useState<PendingDay | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [statusRes, historyRes, resvRes] = await Promise.all([
+      const [statusRes, historyRes, pendingRes] = await Promise.all([
         fetch("/api/trading/status"),
         fetch("/api/trading/history?limit=20"),
         fetch("/api/trading/reservation"),
       ]);
       const statusData = await statusRes.json();
       const historyData = await historyRes.json();
-      const resvData = await resvRes.json();
+      const pendingData = await pendingRes.json();
       setStatus(statusData);
       setTrades(historyData.trades ?? []);
       setTradeTotal(historyData.total ?? 0);
-      setReservation(resvData.reservation ?? null);
+      setPending(pendingData.pending ?? null);
     } catch {
       // silent
     } finally {
@@ -77,7 +86,6 @@ export default function TradingPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
 
   if (loading) {
     return (
@@ -96,23 +104,21 @@ export default function TradingPage() {
     <main className="max-w-7xl mx-auto px-4 py-8">
       <NavTabs />
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">트레이딩 대시보드</h1>
+        <h1 className="text-2xl font-bold mb-1">트레이딩 대시보드 (V4)</h1>
         <p className="text-sm text-gray-500">
-          무한매수법 자동매매 모니터링
+          무한매수법 V4.0 · LOC 예약매수 · 실체결 기준 기록
         </p>
       </div>
 
-      {/* Status Cards */}
       {!status?.active ? (
         <div className="p-6 bg-gray-900 border border-gray-800 rounded-xl mb-6">
           <p className="text-gray-400">
-            아직 트레이딩 상태가 없습니다. 아래 버튼으로 첫 실행을 하거나{" "}
-            <code className="text-gray-300">npm run trade</code>를 실행하세요.
+            아직 트레이딩 상태가 없습니다. <code className="text-gray-300">/api/trading/reset</code>{" "}
+            로 초기화하거나 첫 예약을 실행하세요.
           </p>
         </div>
       ) : (
         <>
-          {/* Config Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <StatCard label="종목" value={config?.ticker ?? "-"} />
             <StatCard
@@ -123,38 +129,54 @@ export default function TradingPage() {
               label="목표 수익률"
               value={`${((config?.targetReturn ?? 0) * 100).toFixed(0)}%`}
             />
-            <StatCard
-              label="라운드"
-              value={`${config?.rounds ?? 0}회`}
-            />
+            <StatCard label="라운드" value={`${config?.rounds ?? 0}회`} />
           </div>
 
-          {/* Cycle Status */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <StatCard
-              label="현재 사이클"
-              value={`#${cycle?.cycleNumber ?? 0}`}
+              label="모드"
+              value={cycle?.mode === "reverse" ? "🔻 리버스" : "🟢 일반"}
               accent
             />
             <StatCard
+              label="현재 사이클"
+              value={`#${cycle?.cycleNumber ?? 0}`}
+            />
+            <StatCard
               label="보유수량"
-              value={`${(cycle?.totalShares ?? 0).toFixed(4)}주`}
+              value={`${cycle?.totalShares ?? 0}주`}
             />
             <StatCard
               label="평균단가"
               value={`$${(cycle?.avgCost ?? 0).toFixed(2)}`}
             />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <StatCard
-              label="목표가"
+              label="별지점"
+              value={`$${(computed?.starPoint ?? 0).toFixed(2)}`}
+              accent
+            />
+            <StatCard
+              label="익절가"
               value={`$${(computed?.targetPrice ?? 0).toFixed(2)}`}
               accent
+            />
+            <StatCard
+              label="T 값"
+              value={`${(cycle?.T ?? 0).toFixed(2)} / ${config?.rounds ?? 0}`}
+            />
+            <StatCard
+              label="잔여 라운드"
+              value={`${(computed?.roundsRemaining ?? 0).toFixed(2)}`}
             />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <StatCard
-              label="사용 라운드"
-              value={`${cycle?.roundsUsed ?? 0} / ${config?.rounds ?? 0}`}
+              label="다음 매수금"
+              value={`$${(computed?.nextBuyAmount ?? 0).toFixed(2)}`}
             />
             <StatCard
               label="잔여 현금"
@@ -165,41 +187,84 @@ export default function TradingPage() {
               value={`${computed?.capitalUsageRate ?? 0}%`}
             />
             <StatCard
-              label="마지막 거래"
+              label="MA5"
+              value={
+                (computed?.ma5 ?? 0) > 0
+                  ? `$${(computed?.ma5 ?? 0).toFixed(2)}`
+                  : "-"
+              }
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+            <StatCard
+              label="마지막 제출일"
               value={s?.lastTradeDate || "없음"}
+            />
+            <StatCard
+              label="마지막 정산일"
+              value={s?.lastSettleDate || "없음"}
+            />
+            <StatCard
+              label="리버스 첫날?"
+              value={cycle?.reverseFirstDay ? "예" : "아니오"}
             />
           </div>
         </>
       )}
 
-      {/* Today's Reservation Status */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 mb-6">
-        {reservation ? (
-          <div className="flex items-center gap-3 text-sm flex-wrap">
-            <span className="text-green-400 font-medium">오늘 예약됨 ✓</span>
-            <span className="text-gray-300">
-              {reservation.action} · {reservation.quantity}주 @ ${reservation.price.toFixed(2)}
+      {/* 오늘 펜딩 (제출 완료, 정산 대기) */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">오늘 제출한 LOC 주문</h2>
+          {pending && (
+            <span className="text-xs text-gray-500">
+              {pending.date} · {pending.orders.length}건
             </span>
-            <span className="text-gray-500">주문번호 {reservation.orderId}</span>
-            <span className="text-gray-600">
-              {new Date(reservation.createdAt).toLocaleTimeString("ko-KR")}
-            </span>
-          </div>
+          )}
+        </div>
+        {!pending || pending.orders.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            오늘 제출한 주문이 없습니다 (평일 KST 23:00 자동 실행).
+          </p>
         ) : (
-          <span className="text-sm text-gray-500">오늘 예약 없음 (평일 KST 23:00 자동 실행)</span>
+          <div className="space-y-1.5">
+            {pending.orders.map((o) => {
+              const style = kindStyles[o.kind] ?? {
+                label: o.kind,
+                color: "text-gray-400",
+              };
+              return (
+                <div
+                  key={o.orderId}
+                  className="flex items-center gap-3 text-xs flex-wrap"
+                >
+                  <span className={`font-medium ${style.color}`}>
+                    {style.label}
+                  </span>
+                  <span className="text-gray-300">
+                    {o.quantity}주 @ ${o.limitPrice.toFixed(2)}
+                  </span>
+                  <span className="text-gray-600">{o.orderId}</span>
+                  <span className="text-gray-700 truncate max-w-md">
+                    {o.reason}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Trade History */}
+      {/* 실체결 거래 내역 */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="font-semibold">거래 내역</h2>
+          <h2 className="font-semibold">실체결 내역</h2>
           <span className="text-xs text-gray-500">총 {tradeTotal}건</span>
         </div>
-
         {trades.length === 0 ? (
           <div className="p-6 text-center text-gray-500 text-sm">
-            거래 내역이 없습니다.
+            체결 내역이 없습니다.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -207,20 +272,20 @@ export default function TradingPage() {
               <thead>
                 <tr className="text-gray-500 text-xs border-b border-gray-800">
                   <th className="text-left px-4 py-3">날짜</th>
-                  <th className="text-left px-4 py-3">액션</th>
-                  <th className="text-right px-4 py-3">가격</th>
+                  <th className="text-left px-4 py-3">종류</th>
+                  <th className="text-right px-4 py-3">단가</th>
                   <th className="text-right px-4 py-3">수량</th>
                   <th className="text-right px-4 py-3">금액</th>
                   <th className="text-right px-4 py-3">평균단가</th>
-                  <th className="text-right px-4 py-3">라운드</th>
+                  <th className="text-right px-4 py-3">T</th>
                   <th className="text-right px-4 py-3">잔여현금</th>
                   <th className="text-left px-4 py-3">사유</th>
                 </tr>
               </thead>
               <tbody>
                 {trades.map((t, i) => {
-                  const style = actionStyles[t.action] ?? {
-                    label: t.action,
+                  const style = kindStyles[t.kind] ?? {
+                    label: t.kind,
                     color: "text-gray-400",
                   };
                   return (
@@ -235,17 +300,15 @@ export default function TradingPage() {
                       <td className="px-4 py-2.5 text-right">
                         ${t.price.toFixed(2)}
                       </td>
+                      <td className="px-4 py-2.5 text-right">{t.quantity}</td>
                       <td className="px-4 py-2.5 text-right">
-                        {t.quantity > 0 ? t.quantity.toFixed(4) : "-"}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        {t.amount > 0 ? `$${t.amount.toFixed(2)}` : "-"}
+                        ${t.amount.toFixed(2)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         ${t.avgCost.toFixed(2)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        {t.roundsUsed}
+                        {t.T?.toFixed?.(2) ?? "-"}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         ${t.cashRemaining.toFixed(2)}

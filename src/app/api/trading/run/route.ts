@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runTradingEngine } from "@/lib/trading/engine";
+import { runV4Reservation } from "@/lib/trading/v4-runner";
 import type { KISConfig } from "@/lib/kis/types";
 import type { TradingConfig } from "@/lib/trading/types";
 
@@ -26,7 +26,7 @@ function loadConfigs(): { kis: KISConfig; trading: TradingConfig } | null {
       ticker: process.env.TRADING_TICKER || "TQQQ",
       totalCapital: Number(process.env.TRADING_TOTAL_CAPITAL) || 10000,
       rounds: Number(process.env.TRADING_ROUNDS) || 40,
-      targetReturn: Number(process.env.TRADING_TARGET_RETURN) || 0.1,
+      targetReturn: Number(process.env.TRADING_TARGET_RETURN) || 0.15,
       exchange:
         (process.env.TRADING_EXCHANGE as "NASD" | "NYSE" | "AMEX") || "NASD",
       locPriceMargin: Number(process.env.TRADING_LOC_MARGIN) || 0.05,
@@ -47,7 +47,7 @@ export async function POST() {
   }
 
   try {
-    const result = await runTradingEngine(configs.kis, configs.trading);
+    const result = await runV4Reservation(configs.kis, configs.trading);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

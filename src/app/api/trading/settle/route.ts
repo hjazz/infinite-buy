@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runV4Reservation } from "@/lib/trading/v4-runner";
-import { loadPendingDay } from "@/lib/trading/pending";
+import { runV4Settlement } from "@/lib/trading/v4-runner";
 import type { KISConfig } from "@/lib/kis/types";
 import type { TradingConfig } from "@/lib/trading/types";
 
@@ -34,13 +33,7 @@ function loadConfigs(): { kis: KISConfig; trading: TradingConfig } | null {
   };
 }
 
-function todayKST(): string {
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().split("T")[0];
-}
-
-async function executeReservation() {
+async function executeSettlement() {
   const configs = loadConfigs();
   if (!configs) {
     return NextResponse.json(
@@ -50,7 +43,7 @@ async function executeReservation() {
   }
 
   try {
-    const result = await runV4Reservation(configs.kis, configs.trading);
+    const result = await runV4Settlement(configs.kis, configs.trading);
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -58,21 +51,22 @@ async function executeReservation() {
   }
 }
 
-// GET: Vercel Cron 호출 (Authorization: Bearer {CRON_SECRET}) 또는 대시보드 펜딩 조회
+// GET: Vercel Cron (Authorization: Bearer {CRON_SECRET})
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
 
   if (cronSecret && auth === `Bearer ${cronSecret}`) {
-    return executeReservation();
+    return executeSettlement();
   }
 
-  // 대시보드용: 오늘 펜딩 조회
-  const day = await loadPendingDay(todayKST());
-  return NextResponse.json({ pending: day ?? null });
+  return NextResponse.json(
+    { error: "정산은 cron 인증이 필요합니다." },
+    { status: 401 },
+  );
 }
 
-// POST: 대시보드 수동 제출
+// POST: 대시보드/수동 정산 (인증 없이 호출 가능)
 export async function POST() {
-  return executeReservation();
+  return executeSettlement();
 }

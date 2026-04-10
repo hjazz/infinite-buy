@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import type { TradingState, TradingConfig } from "./types";
 import { redis } from "../storage";
@@ -35,6 +35,16 @@ export async function saveState(state: TradingState): Promise<void> {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
 }
 
+export async function clearState(): Promise<void> {
+  if (redis) {
+    await redis.del(REDIS_KEY);
+    return;
+  }
+  if (existsSync(STATE_FILE)) {
+    unlinkSync(STATE_FILE);
+  }
+}
+
 export function initState(config: TradingConfig): TradingState {
   const now = new Date().toISOString();
   return {
@@ -44,11 +54,15 @@ export function initState(config: TradingConfig): TradingState {
       startDate: now.split("T")[0],
       totalShares: 0,
       avgCost: 0,
-      roundsUsed: 0,
+      T: 0,
       cycleCash: config.totalCapital,
       totalCash: config.totalCapital,
+      mode: "normal",
+      recentCloses: [],
+      reverseFirstDay: false,
     },
     lastTradeDate: "",
+    lastSettleDate: "",
     createdAt: now,
     updatedAt: now,
   };
