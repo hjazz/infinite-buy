@@ -1,6 +1,6 @@
 import type { KISConfig } from "../kis/types";
 import { getCurrentPrice } from "../kis/quote";
-import { placeReservationBuy, placeReservationSell } from "../kis/order";
+import { placeLOCBuy, placeLOCSell } from "../kis/order";
 import { checkExecution } from "../kis/execution";
 import {
   loadState,
@@ -124,14 +124,14 @@ export async function runV4Reservation(
 
     try {
       const result = order.side === "buy"
-        ? await placeReservationBuy(
+        ? await placeLOCBuy(
             kis,
             trading.ticker,
             order.quantity,
             order.limitPrice,
             trading.exchange,
           )
-        : await placeReservationSell(
+        : await placeLOCSell(
             kis,
             trading.ticker,
             order.quantity,
@@ -159,7 +159,7 @@ export async function runV4Reservation(
     } catch (err) {
       failed++;
       const msg = err instanceof Error ? err.message : String(err);
-      await notifyError(`${trading.ticker} ${order.kind} 예약 실패: ${msg}`);
+      await notifyError(`${trading.ticker} ${order.kind} LOC 제출 실패: ${msg}`);
     }
   }
 
@@ -173,7 +173,7 @@ export async function runV4Reservation(
 
   // 알림
   const summaryLines = [
-    `<b>${trading.ticker} V4 LOC 예약 제출</b>`,
+    `<b>${trading.ticker} V4 LOC 제출</b>`,
     `날짜: ${today}`,
     `현재가: $${refPrice.toFixed(2)}`,
     `T: ${state.cycle.T.toFixed(2)} / mode: ${state.cycle.mode}`,
