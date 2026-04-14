@@ -43,6 +43,7 @@ export interface ReservationResult {
   submitted: number;
   failed: number;
   orders: { kind: string; orderId: string; quantity: number; price: number }[];
+  failures?: { kind: string; error: string }[];
 }
 
 /**
@@ -107,6 +108,7 @@ export async function runV4Reservation(
 
   const pending: PendingOrder[] = [];
   const submittedSummary: ReservationResult["orders"] = [];
+  const failures: { kind: string; error: string }[] = [];
   let failed = 0;
 
   for (const order of planned) {
@@ -159,6 +161,7 @@ export async function runV4Reservation(
     } catch (err) {
       failed++;
       const msg = err instanceof Error ? err.message : String(err);
+      failures.push({ kind: order.kind, error: msg });
       await notifyError(`${trading.ticker} ${order.kind} LOC 제출 실패: ${msg}`);
     }
   }
@@ -192,6 +195,7 @@ export async function runV4Reservation(
     submitted: pending.length,
     failed,
     orders: submittedSummary,
+    failures: failures.length > 0 ? failures : undefined,
   };
 }
 
