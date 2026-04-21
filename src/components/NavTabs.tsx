@@ -9,6 +9,7 @@ const tabs = [
   { label: "밸류리밸런싱", href: "/backtest-vr" },
   { label: "VR 계산기", href: "/vr-calc" },
   { label: "트레이딩 대시보드", href: "/trading" },
+  { label: "V4 체결 일지", href: "/journal" },
 ];
 
 export default function NavTabs() {
