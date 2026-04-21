@@ -118,8 +118,9 @@ export default function JournalPage() {
   const [cycleState, setCycleState] = useState<CycleState>(() =>
     makeInitialState(DEFAULT_CONFIG.totalCapital)
   );
-  const [refPrice, setRefPrice] = useState("");
   const [showConfig, setShowConfig] = useState(false);
+
+  const lastFillPrice = fills.length > 0 ? fills[fills.length - 1].filledPrice : 0;
 
   const today = new Date().toISOString().split("T")[0];
   const availableKinds = getAvailableKinds(cycleState, config);
@@ -137,10 +138,9 @@ export default function JournalPage() {
   }, [availableKinds, formKind]);
 
   const plannedOrders = useMemo(() => {
-    const price = parseFloat(refPrice);
-    if (!price || price <= 0) return [];
-    return planV4Orders(config, cycleState, price);
-  }, [config, cycleState, refPrice]);
+    if (lastFillPrice <= 0) return [];
+    return planV4Orders(config, cycleState, lastFillPrice);
+  }, [config, cycleState, lastFillPrice]);
 
   const star =
     cycleState.avgCost > 0 ? starPoint(cycleState.avgCost, cycleState.T) : 0;
@@ -376,15 +376,7 @@ export default function JournalPage() {
             {/* Next Orders */}
             <div className="bg-gray-900 rounded-xl p-4">
               <h2 className="font-semibold text-gray-200 mb-3">다음 주문 계획</h2>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="현재가 입력 ($)"
-                value={refPrice}
-                onChange={(e) => setRefPrice(e.target.value)}
-                className="bg-gray-800 rounded px-3 py-2 text-sm w-full mb-3"
-              />
-              {refPrice && parseFloat(refPrice) > 0 ? (
+              {lastFillPrice > 0 ? (
                 plannedOrders.length > 0 ? (
                   <div className="space-y-2">
                     {plannedOrders.map((order, i) => (
@@ -422,7 +414,7 @@ export default function JournalPage() {
                 )
               ) : (
                 <p className="text-gray-500 text-sm">
-                  현재가를 입력하면 계산됩니다
+                  체결 기록을 추가하면 계산됩니다
                 </p>
               )}
             </div>
