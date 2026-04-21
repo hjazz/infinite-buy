@@ -216,7 +216,7 @@ export function planV4Orders(
         kind: "final_sell_target",
         side: "sell",
         quantity: finalQty,
-        limitPrice: priceWithSellMargin(target, locPriceMargin),
+        limitPrice: target,
         reason: `익절 매도 ${finalQty}주 @ avgCost×${(1 + targetReturn).toFixed(2)}≈$${target.toFixed(2)}`,
       });
     }
