@@ -112,8 +112,6 @@ function replayFills(
   return state;
 }
 
-const STORAGE_KEY = "v4-journal";
-
 export default function JournalPage() {
   const [config, setConfig] = useState<TradingConfig>(DEFAULT_CONFIG);
   const [fills, setFills] = useState<FillEntry[]>([]);
@@ -125,7 +123,7 @@ export default function JournalPage() {
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem("v4-journal");
       if (!saved) return;
       const { config: savedConfig, fills: savedFills } = JSON.parse(saved) as {
         config: TradingConfig;
@@ -139,7 +137,7 @@ export default function JournalPage() {
 
   // Save to localStorage on change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ config, fills }));
+    localStorage.setItem("v4-journal", JSON.stringify({ config, fills }));
   }, [config, fills]);
 
   const lastFillPrice = fills.length > 0 ? fills[fills.length - 1].filledPrice : 0;
